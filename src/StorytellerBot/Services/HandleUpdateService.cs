@@ -60,7 +60,7 @@ public class HandleUpdateService
         var action = message.Text!.Split(' ')[0] switch
         {
             "/start"    => Reset(_botClient, message),
-            _           => Fallback(_botClient, message)
+            _           => Text(_botClient, message)
         };
         Message sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {sentMessageId}",sentMessage.MessageId);
@@ -88,11 +88,20 @@ public class HandleUpdateService
                 replyMarkup: new ReplyKeyboardRemove());
         }
 
-        static async Task<Message> Fallback(ITelegramBotClient bot, Message message)
+        async Task<Message> Text(ITelegramBotClient bot, Message message)
         {
+            string? line = _gameEngineService.GetFirstMessage(message.Text ?? string.Empty);
+            if (line == null)
+            {
+                return await bot.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "No te entiendo!",
+                    replyMarkup: new ReplyKeyboardRemove());
+            }
+
             return await bot.SendTextMessageAsync(
                 chatId: message.Chat.Id,
-                text: "No te entiendo!",
+                text: line,
                 replyMarkup: new ReplyKeyboardRemove());
         }
     }

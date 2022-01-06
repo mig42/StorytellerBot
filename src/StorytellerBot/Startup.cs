@@ -28,8 +28,8 @@ public class Startup
             .AddTypedClient<ITelegramBotClient>(
                 httpClient => new TelegramBotClient(botToken, httpClient));
 
-        // Dummy business-logic service
         services.AddScoped<HandleUpdateService>();
+        services.AddScoped<GameEngineService>();
 
         services
             .AddControllers()

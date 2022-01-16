@@ -1,5 +1,3 @@
-# Telegram.Bot Examples
-
 # Storyteller-Bot.Net
 
 ## About

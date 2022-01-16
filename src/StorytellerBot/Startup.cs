@@ -22,6 +22,7 @@ public class Startup
             .GetValue<string>(nameof(BotConfiguration.BotToken));
 
         services.Configure<BotConfiguration>(botConfigurationSection);
+        services.Configure<MessageSettings>(Configuration.GetSection("Message"));
 
         services
             .AddHttpClient("tgwebhook")

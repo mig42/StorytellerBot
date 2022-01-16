@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-
+using StorytellerBot.Models;
 using StorytellerBot.Settings;
 using Story = Ink.Runtime.Story;
 
@@ -24,13 +24,31 @@ public class GameEngineService
                 .ToList()!
             : new List<string>();
 
-    public string? GetFirstMessage(string storyName)
+    public async Task<AdventureStep?> GetFirstMessage(string storyName)
     {
-        string storyPath = Path.Combine(_baseScriptsPath, $"{storyName}{Extension}");
+        var storyPath = Path.Combine(_baseScriptsPath, $"{storyName}{Extension}");
         if (!File.Exists(storyPath))
             return null;
 
-        var story = new Story(storyPath);
-        return story.currentText;
+        var jsonContent = await File.ReadAllTextAsync(storyPath);
+        var story = new Story(jsonContent.Trim());
+
+        var paragraphs = new List<string>();
+        while (story.canContinue)
+        {
+            story.Continue();
+            paragraphs.Add(story.currentText);
+        }
+
+        return new AdventureStep
+        {
+            Paragraphs = paragraphs,
+            Decisions = story.currentChoices.Select(choice => new Decision
+            {
+                Text = choice.text,
+                Path = choice.pathStringOnChoice,
+            }),
+            IsEnding = !story.currentChoices.Any(),
+        };
     }
 }

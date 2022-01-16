@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Options;
+using StorytellerBot.Models;
+using StorytellerBot.Settings;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
@@ -8,15 +11,18 @@ namespace StorytellerBot.Services;
 
 public class HandleUpdateService
 {
+    private readonly MessageSettings _messageSettings;
     private readonly GameEngineService _gameEngineService;
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<HandleUpdateService> _logger;
 
     public HandleUpdateService(
+        IOptionsSnapshot<MessageSettings> messageSettings,
         GameEngineService gameEngineService,
         ITelegramBotClient botClient,
         ILogger<HandleUpdateService> logger)
     {
+        _messageSettings = messageSettings.Value;
         _gameEngineService = gameEngineService;
         _botClient = botClient;
         _logger = logger;
@@ -47,13 +53,13 @@ public class HandleUpdateService
         }
         catch (Exception exception)
         {
-            await HandleErrorAsync(exception);
+            await HandleErrorAsync(exception, update);
         }
     }
 
     private async Task BotOnMessageReceived(Message message)
     {
-        _logger.LogInformation("Receive message type: {messageType}", message.Type);
+        _logger.LogInformation("Receive message type: {MessageType}", message.Type);
         if (message.Type != MessageType.Text)
             return;
 
@@ -62,10 +68,13 @@ public class HandleUpdateService
             "/start"    => Reset(_botClient, message),
             _           => Text(_botClient, message)
         };
-        Message sentMessage = await action;
-        _logger.LogInformation("The message was sent with id: {sentMessageId}",sentMessage.MessageId);
 
-        async Task<Message> Reset(ITelegramBotClient bot, Message message)
+        var sentMessages = await action;
+        _logger.LogInformation(
+            "Sent message(s) with id(s): {SentMessageIds}",
+            sentMessages.Select(m => m.MessageId));
+
+        async Task<IEnumerable<Message>> Reset(ITelegramBotClient bot, Message msg)
         {
             IList<string> availableScripts = _gameEngineService.GetAvailableScripts();
             if (availableScripts.Any())
@@ -76,51 +85,84 @@ public class HandleUpdateService
                         ResizeKeyboard = true,
                     };
 
-                return await bot.SendTextMessageAsync(
-                    chatId: message.Chat.Id,
+                return new[]
+                {
+                    await SendMessage(
+                    chatId: msg.Chat.Id,
                     text: "¿Qué historia quieres que te cuente?",
-                    replyMarkup: replyKeyboardMarkup);
+                    replyMarkup: replyKeyboardMarkup,
+                    delayBeforeSend: TimeSpan.Zero)
+
+                };
             }
 
-            return await bot.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: "Aún no hay historias que contar :(",
-                replyMarkup: new ReplyKeyboardRemove());
+            return new[]
+            {
+                await SendMessage(
+                    chatId: msg.Chat.Id, text: "Aún no hay historias que contar :(", delayBeforeSend: TimeSpan.Zero)
+            };
         }
 
-        async Task<Message> Text(ITelegramBotClient bot, Message message)
+        async Task<IEnumerable<Message>> Text(ITelegramBotClient bot, Message msg)
         {
-            string? line = _gameEngineService.GetFirstMessage(message.Text ?? string.Empty);
-            if (line == null)
+            AdventureStep? adventureStep = await _gameEngineService.GetFirstMessage(msg.Text ?? string.Empty);
+
+            var result = new List<Message>();
+            if (adventureStep == null)
             {
-                return await bot.SendTextMessageAsync(
-                    chatId: message.Chat.Id,
-                    text: "No te entiendo!",
-                    replyMarkup: new ReplyKeyboardRemove());
+                result.Add(await SendMessage(
+                    chatId: msg.Chat.Id, text: "No te entiendo!", delayBeforeSend: TimeSpan.Zero));
+                return result;
             }
 
-            return await bot.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: line,
-                replyMarkup: new ReplyKeyboardRemove());
+            foreach (var paragraph in adventureStep.Paragraphs.SkipLast(1))
+                result.Add(await SendMessage(msg.Chat.Id, paragraph));
+
+            result.Add(await SendMessage(
+                msg.Chat.Id,
+                adventureStep.Paragraphs.Last(),
+                BuildDecisionsInlineKeyboard(adventureStep)));
+
+            return result;
+        }
+
+        static InlineKeyboardMarkup BuildDecisionsInlineKeyboard(AdventureStep adventureStep)
+        {
+            if (adventureStep.IsEnding)
+                return InlineKeyboardMarkup.Empty();
+
+            return new InlineKeyboardMarkup(adventureStep.Decisions.Select(decision => new[]
+            {
+                InlineKeyboardButton.WithCallbackData(decision.Text, decision.Path),
+            }));
         }
     }
 
     // Process Inline Keyboard callback data
     private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery)
     {
-        await Task.Yield();
-        // Important: manage callback
-        // call_botClient.AnswerCallbackQueryAsync and _botClient.SendTextMessageAsync
+        if (callbackQuery.Message == null)
+        {
+            _logger.LogWarning("Unable to handle callback #{CallbackId}, message was empty", callbackQuery.Id);
+            return;
+        }
+
+        await _botClient.EditMessageReplyMarkupAsync(
+            chatId: callbackQuery.Message.Chat.Id,
+            messageId: callbackQuery.Message.MessageId,
+            replyMarkup: InlineKeyboardMarkup.Empty());
+
+        await SendMessage(callbackQuery.Message.Chat.Id, "Camino elegido: " + callbackQuery.Data);
     }
 
     private Task HandleUnsupportedUpdateAsync(Update update)
     {
-        _logger.LogInformation("Unsupported update type: {updateType}", update.Type);
+        _logger.LogInformation(
+            "Unsupported update type: {UpdateType}", update.Type);
         return Task.CompletedTask;
     }
 
-    private Task HandleErrorAsync(Exception exception)
+    private async Task HandleErrorAsync(Exception exception, Update update)
     {
         var errorMessage = exception switch
         {
@@ -132,7 +174,24 @@ public class HandleUpdateService
             _ => exception.ToString()
         };
 
-        _logger.LogInformation("HandleError: {errorMessage}", errorMessage);
-        return Task.CompletedTask;
+        _logger.LogInformation("HandleError: {ErrorMessage}", errorMessage);
+        if (update.Type == UpdateType.Message && update.Message != null)
+        {
+            await SendMessage(update.Message.Chat.Id, $"Error: {errorMessage}");
+        }
+    }
+
+    async Task<Message> SendMessage(
+        ChatId chatId,
+        string text,
+        IReplyMarkup? replyMarkup = null,
+        TimeSpan? delayBeforeSend = null)
+    {
+        await Task.Delay(delayBeforeSend ?? _messageSettings.DelayBeforeSend);
+
+        return await _botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: text,
+            replyMarkup: replyMarkup ?? new ReplyKeyboardRemove());
     }
 }

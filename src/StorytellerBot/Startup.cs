@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StorytellerBot.Data;
 using StorytellerBot.Services;
+using StorytellerBot.Services.Conversations;
 using StorytellerBot.Settings;
 using Telegram.Bot;
 
@@ -35,8 +36,14 @@ public class Startup
             .AddTypedClient<ITelegramBotClient>(
                 httpClient => new TelegramBotClient(botToken, httpClient));
 
-        services.AddScoped<HandleUpdateService>();
-        services.AddScoped<GameEngineService>();
+        services.AddScoped<IMessageGeneratorFactory, MessageGeneratorFactory>();
+        services.AddScoped<ResponseSender>();
+
+        services.AddTransient<ICallbackConversation, CallbackConversation>();
+        services.AddTransient<ITextConversation, TextConversation>();
+        services.AddTransient<IStartCommandConversation, StartCommandConversation>();
+        services.AddTransient<IRestartCommandConversation, RestartCommandConversation>();
+        services.AddTransient<IListCommandConversation, ListCommandConversation>();
 
         services
             .AddControllers()

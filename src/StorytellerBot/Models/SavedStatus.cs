@@ -13,6 +13,5 @@ public class SavedStatus
     public Adventure Adventure { get; set; } = null!;
     public int AdventureId { get; set; }
     public string? StoryState { get; set; }
-    [Required]
     public DateTime LastUpdated { get; set; }
 }

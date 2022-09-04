@@ -7,8 +7,12 @@ namespace StorytellerBot.Models;
 public class User
 {
     [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.None)]
     public long Id { get; set; }
-    public string? CurrentCommand { get; set; }
+    public int? CurrentGameId { get; set; }
     public SavedStatus? CurrentGame { get; set; }
-    public int CurrentGameId { get; set; }
+    public int? CommandProgressId { get; set; }
+    public CommandProgress? CommandProgress { get; set; } = null!;
+
+    public List<SavedStatus> SavedGames { get; set; } = new();
 }

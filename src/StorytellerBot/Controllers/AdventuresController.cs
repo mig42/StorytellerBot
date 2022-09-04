@@ -48,7 +48,7 @@ public class AdventuresController : ControllerBase
         if (_webhookToken != token)
             return Unauthorized();
 
-        return _adventureContext.Adventures.ToArray();
+        return _adventureContext.Adventures.AsNoTracking().ToArray();
     }
 
     [HttpGet("{id:int}")]
@@ -60,7 +60,7 @@ public class AdventuresController : ControllerBase
         if (_webhookToken != token)
             return Unauthorized();
 
-        var adventure = GetAdventure(id);
+        var adventure = _adventureContext.Adventures.AsNoTracking().FirstOrDefault(a => a.Id == id);
         return adventure == null ? NotFound() : adventure;
     }
 
@@ -74,16 +74,13 @@ public class AdventuresController : ControllerBase
         if (_webhookToken != token)
             return Unauthorized();
 
-        var adventure = GetAdventure(id);
+        var adventure = _adventureContext.Adventures.FirstOrDefault(a => a.Id == id);
         if (adventure == null)
             return NotFound();
         _adventureContext.Adventures.Remove(adventure);
         await _adventureContext.SaveChangesAsync();
         return Ok();
     }
-
-    private Adventure? GetAdventure(int id) =>
-        _adventureContext.Adventures.AsNoTracking().SingleOrDefault(a => a.Id == id);
 
     const string TokenHeader = "Webhook-Token";
 }

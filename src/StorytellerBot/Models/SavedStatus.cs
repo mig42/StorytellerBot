@@ -8,10 +8,11 @@ public class SavedStatus
 {
     [Key]
     public int Id { get; set; }
+    public User User { get; set; } = null!;
     public long UserId { get; set; }
-    public Adventure? Adventure { get; set; }
+    public Adventure Adventure { get; set; } = null!;
     public int AdventureId { get; set; }
-    public string? SavedStatusJson { get; set; }
+    public string? StoryState { get; set; }
     [Required]
     public DateTime LastUpdated { get; set; }
 }

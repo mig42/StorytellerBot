@@ -9,12 +9,14 @@ public class AdventureContext : DbContext
     {
     }
 
+    public DbSet<User> Users { get; set; } = null!;
     public DbSet<Adventure> Adventures { get; set; } = null!;
     public DbSet<SavedStatus> SavedStatuses { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Adventure>().ToTable("Adventure");
-        modelBuilder.Entity<SavedStatus>().ToTable("SavedStatus");
+        modelBuilder.Entity<User>();
+        modelBuilder.Entity<Adventure>();
+        modelBuilder.Entity<SavedStatus>();
     }
 }

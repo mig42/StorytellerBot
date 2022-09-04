@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using StorytellerBot.Data;
 using StorytellerBot.Models;
 using StorytellerBot.Settings;
 using Story = Ink.Runtime.Story;
@@ -9,29 +11,44 @@ public class GameEngineService
 {
     private const string Extension = ".json";
     private readonly string _baseScriptsPath;
+    private readonly AdventureContext _adventureContext;
 
     public GameEngineService(
-        IOptionsSnapshot<GameConfiguration> gameConfig, IHostEnvironment environment)
+        IOptionsSnapshot<GameConfiguration> gameConfig,
+        IHostEnvironment environment,
+        AdventureContext adventureContext)
     {
         _baseScriptsPath = Path.Combine(environment.ContentRootPath, gameConfig.Value.ScriptsDirectory);
+        _adventureContext = adventureContext;
     }
 
-    public IList<string> GetAvailableScripts() =>
-        Directory.Exists(_baseScriptsPath)
-            ? Directory
-                .GetFiles(_baseScriptsPath, $"*{Extension}")
-                .Select(Path.GetFileNameWithoutExtension)
-                .ToList()!
-            : new List<string>();
+    internal IList<Adventure> GetAdventures() =>
+        _adventureContext.Adventures.AsNoTracking().OrderBy(a => a.Id).ToList();
 
-    public async Task<AdventureStep?> GetFirstMessage(string storyName)
+    internal Adventure? GetAdventure(string name) =>
+        _adventureContext.Adventures.AsNoTracking().FirstOrDefault(a => a.Name == name);
+
+    internal SavedStatus? GetSavedStatus(Adventure adventure, long userId)
     {
-        var storyPath = Path.Combine(_baseScriptsPath, $"{storyName}{Extension}");
+        if (adventure == null)
+            return null;
+        return _adventureContext.SavedStatuses.AsNoTracking()
+            .FirstOrDefault(s => s.UserId == userId && s.AdventureId == adventure.Id);
+    }
+
+    internal async Task<AdventureStep?> GetNextStep(Adventure? adventure, SavedStatus? savedStatus)
+    {
+        if (adventure == null)
+            return null;
+
+        var storyPath = Path.Combine(_baseScriptsPath, $"{adventure.ScriptFileName}{Extension}");
         if (!File.Exists(storyPath))
             return null;
 
         var jsonContent = await File.ReadAllTextAsync(storyPath);
         var story = new Story(jsonContent.Trim());
+        if (savedStatus != null)
+            story.state.LoadJson(savedStatus.StoryState);
 
         var paragraphs = new List<string>();
         while (story.canContinue)
@@ -49,6 +66,10 @@ public class GameEngineService
                 Path = choice.pathStringOnChoice,
             }),
             IsEnding = !story.currentChoices.Any(),
+            Story = story,
         };
     }
+
+    internal User? GetUser(long id) =>
+        _adventureContext.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
 }

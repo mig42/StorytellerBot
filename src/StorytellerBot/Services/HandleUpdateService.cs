@@ -1,4 +1,6 @@
+using System.Text;
 using Microsoft.Extensions.Options;
+using StorytellerBot.Data;
 using StorytellerBot.Models;
 using StorytellerBot.Settings;
 using Telegram.Bot;
@@ -14,17 +16,20 @@ public class HandleUpdateService
     private readonly MessageSettings _messageSettings;
     private readonly GameEngineService _gameEngineService;
     private readonly ITelegramBotClient _botClient;
+    private readonly AdventureContext _adventureContext;
     private readonly ILogger<HandleUpdateService> _logger;
 
     public HandleUpdateService(
         IOptionsSnapshot<MessageSettings> messageSettings,
         GameEngineService gameEngineService,
         ITelegramBotClient botClient,
+        AdventureContext adventureContext,
         ILogger<HandleUpdateService> logger)
     {
         _messageSettings = messageSettings.Value;
         _gameEngineService = gameEngineService;
         _botClient = botClient;
+        _adventureContext = adventureContext;
         _logger = logger;
     }
 
@@ -60,13 +65,15 @@ public class HandleUpdateService
     private async Task BotOnMessageReceived(Message message)
     {
         _logger.LogInformation("Receive message type: {MessageType}", message.Type);
-        if (message.Type != MessageType.Text)
+        if (message.Type != MessageType.Text || message.From == null)
             return;
 
         var action = message.Text!.Split(' ')[0] switch
         {
-            "/start"    => Reset(_botClient, message),
-            _           => Text(_botClient, message)
+            $"/{Commands.Start}" => ShowStartMenu(_botClient, message),
+            $"/{Commands.Restart}" => Reset(_botClient, message),
+            $"/{Commands.List}" => ListAdventures(_botClient, message),
+            _ => Text(_botClient, message)
         };
 
         var sentMessages = await action;
@@ -74,9 +81,32 @@ public class HandleUpdateService
             "Sent message(s) with id(s): {SentMessageIds}",
             sentMessages.Select(m => m.MessageId));
 
+        Task<IEnumerable<Message>> ShowStartMenu(ITelegramBotClient bot, Message msg)
+        {
+            var user = _gameEngineService.GetUser(msg.From!.Id);
+            // TODO handle check
+            var adventures = _gameEngineService.GetAdventures();
+            StringBuilder sb = new();
+            sb.AppendLine("*Elige una aventura:*");
+
+            foreach (var adventure in adventures)
+            {
+                sb.AppendLine($"{adventure.Id}. {adventure.Name}");
+            }
+
+        }
+
+        async Task<IEnumerable<Message>> ListAdventures(ITelegramBotClient bot, Message msg)
+        {
+            var adventures = _gameEngineService.GetAdventures();
+            var tasks = adventures.Select(a => SendMessage(
+                msg.Chat.Id, $"📜 *{a.Id}: _{a.Name}*_\n\n{a.Description}"));
+            return await Task.WhenAll(tasks);
+        }
+
         async Task<IEnumerable<Message>> Reset(ITelegramBotClient bot, Message msg)
         {
-            IList<string> availableScripts = _gameEngineService.GetAvailableScripts();
+            IList<string> availableScripts = _gameEngineService.GetAdventures();
             if (availableScripts.Any())
             {
                 ReplyKeyboardMarkup replyKeyboardMarkup = new(
@@ -105,7 +135,9 @@ public class HandleUpdateService
 
         async Task<IEnumerable<Message>> Text(ITelegramBotClient bot, Message msg)
         {
-            AdventureStep? adventureStep = await _gameEngineService.GetFirstMessage(msg.Text ?? string.Empty);
+            var adventure = _gameEngineService.GetAdventure(msg)
+                .FirstOrDefault(a => a.Name == msg.Text);
+            AdventureStep? adventureStep = await _gameEngineService.GetNextStep(msg.Text ?? string.Empty);
 
             var result = new List<Message>();
             if (adventureStep == null)

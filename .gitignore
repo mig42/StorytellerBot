@@ -224,3 +224,4 @@ out.yml
 local.settings.json
 
 /src/StorytellerBot/Scripts/*.json
+*.db

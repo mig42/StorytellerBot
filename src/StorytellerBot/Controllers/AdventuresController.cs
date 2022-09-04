@@ -40,6 +40,17 @@ public class AdventuresController : ControllerBase
         return newAdventure;
     }
 
+    [HttpGet("")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Adventure[]))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(void))]
+    public ActionResult<Adventure[]> Get([FromHeader(Name = TokenHeader)]string token)
+    {
+        if (_webhookToken != token)
+            return Unauthorized();
+
+        return _adventureContext.Adventures.ToArray();
+    }
+
     [HttpGet("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Adventure))]
     [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(void))]

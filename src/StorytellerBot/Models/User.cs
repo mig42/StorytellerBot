@@ -10,7 +10,7 @@ public class User
     [DatabaseGenerated(DatabaseGeneratedOption.None)]
     public long Id { get; set; }
     public int? CurrentGameId { get; set; }
-    public SavedStatus? CurrentGame { get; set; }
+    public CurrentGame? CurrentGame { get; set; }
     public int? CommandProgressId { get; set; }
     public CommandProgress? CommandProgress { get; set; } = null!;
 

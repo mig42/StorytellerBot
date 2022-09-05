@@ -90,13 +90,27 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            user.CommandProgress = null;
-            user.CurrentGame = new SavedStatus
+            var newStatus = new SavedStatus
             {
                 AdventureId = adventureId.Value,
                 UserId = user.Id,
                 LastUpdated = DateTime.UtcNow,
             };
+            var currentGame = new CurrentGame
+            {
+                User = user,
+                SavedStatus = newStatus,
+            };
+
+            user.CommandProgress = null;
+            user.CurrentGame = currentGame;
+            if (user.CurrentGame != null)
+            {
+                _context.CurrentGames.Remove(user.CurrentGame);
+            }
+
+            _context.CurrentGames.Add(currentGame);
+            _context.SavedStatuses.Add(newStatus);
             await _context.SaveChangesAsync();
         }
 
@@ -109,12 +123,26 @@ public class StartCommandConversation : IConversation
                 user.SavedGames.Remove(savedGame);
                 _context.SavedStatuses.Remove(savedGame);
 
-                user.CurrentGame = new SavedStatus
+                var newStatus = new SavedStatus
                 {
                     AdventureId = savedGame.AdventureId,
                     UserId = user.Id,
                     LastUpdated = DateTime.UtcNow,
                 };
+                var currentGame = new CurrentGame
+                {
+                    User = user,
+                    SavedStatus = newStatus,
+                };
+
+                user.CommandProgress = null;
+                if (user.CurrentGame != null)
+                {
+                    _context.CurrentGames.Remove(user.CurrentGame);
+                }
+                user.CurrentGame = currentGame;
+                _context.SavedStatuses.Add(newStatus);
+                _context.CurrentGames.Add(currentGame);
                 await _context.SaveChangesAsync();
             }
             else
@@ -124,8 +152,10 @@ public class StartCommandConversation : IConversation
                 return Enumerable.Empty<Message>();
             }
         }
+
+
         return await _responseSender.SendResponsesAsync(
-            await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame));
+            await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame!.SavedStatus));
 
     }
 

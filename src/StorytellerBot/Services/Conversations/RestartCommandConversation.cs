@@ -63,11 +63,11 @@ public class RestartCommandConversation : IConversation
         if (user.CommandProgress!.Step == State.Confirm)
         {
             user.CommandProgress = null;
-            user.CurrentGame.StoryState = null;
+            user.CurrentGame.SavedStatus.StoryState = null;
             await _context.SaveChangesAsync();
 
             return await _responseSender.SendResponsesAsync(
-                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame));
+                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame.SavedStatus));
         }
 
         return Enumerable.Empty<Message>();

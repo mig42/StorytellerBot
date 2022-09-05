@@ -50,10 +50,12 @@ public class CallbackConversation : IConversation
             return Array.Empty<Message>();
         }
 
-        user.CurrentGame = await _adventureWriter.AdvanceAdventureAsync(user.CurrentGame, choiceIndex);
+        user.CurrentGame.SavedStatus = await _adventureWriter.AdvanceAdventureAsync(
+            user.CurrentGame.SavedStatus, choiceIndex);
         await _context.SaveChangesAsync();
 
-        var responses = await _adventureWriter.GetCurrentStepMessagesAsync(callbackQuery.Message.Chat, user.CurrentGame);
+        var responses = await _adventureWriter.GetCurrentStepMessagesAsync(
+            callbackQuery.Message.Chat, user.CurrentGame.SavedStatus);
         return await _responseSender.SendResponsesAsync(responses);
     }
 }

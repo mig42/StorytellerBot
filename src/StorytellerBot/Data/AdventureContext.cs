@@ -13,6 +13,7 @@ public class AdventureContext : DbContext
     public DbSet<CommandProgress> CommandProgresses { get; set; } = null!;
     public DbSet<Adventure> Adventures { get; set; } = null!;
     public DbSet<SavedStatus> SavedStatuses { get; set; } = null!;
+    public DbSet<CurrentGame> CurrentGames { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -20,5 +21,6 @@ public class AdventureContext : DbContext
         modelBuilder.Entity<CommandProgress>();
         modelBuilder.Entity<Adventure>();
         modelBuilder.Entity<SavedStatus>();
+        modelBuilder.Entity<CurrentGame>();
     }
 }

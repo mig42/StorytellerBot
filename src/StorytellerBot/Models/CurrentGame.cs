@@ -1,13 +1,13 @@
-using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace StorytellerBot.Models;
 
+[Table("CurrentGame")]
 public class CurrentGame
 {
-    [Key]
-    public int Id { get; set; }
-    public User User { get; set; } = null!;
     public long UserId { get; set; }
-    public SavedStatus SavedStatus { get; set; } = null!;
     public int SavedStatusId { get; set; }
+
+    public User User { get; set; } = null!;
+    public SavedStatus SavedStatus { get; set; } = null!;
 }

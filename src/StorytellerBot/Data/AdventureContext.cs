@@ -21,6 +21,7 @@ public class AdventureContext : DbContext
         modelBuilder.Entity<CommandProgress>();
         modelBuilder.Entity<Adventure>();
         modelBuilder.Entity<SavedStatus>();
-        modelBuilder.Entity<CurrentGame>();
+        modelBuilder.Entity<CurrentGame>()
+            .HasKey(cg => new { cg.UserId, cg.SavedStatusId });
     }
 }

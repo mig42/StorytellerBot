@@ -20,7 +20,7 @@ public class AdventureContext : DbContext
         modelBuilder.Entity<User>();
         modelBuilder.Entity<CommandProgress>();
         modelBuilder.Entity<Adventure>();
-        modelBuilder.Entity<SavedStatus>();
+        modelBuilder.Entity<SavedStatus>().HasIndex(s => new { s.UserId, s.AdventureId }).IsUnique();
         modelBuilder.Entity<CurrentGame>()
             .HasKey(cg => new { cg.UserId, cg.SavedStatusId });
     }

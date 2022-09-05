@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using StorytellerBot.Data;
 using StorytellerBot.Models;
 using Telegram.Bot.Types;
@@ -7,18 +6,18 @@ namespace StorytellerBot.Services.Conversations;
 
 public class ListCommandConversation : IConversation
 {
-    private readonly AdventureContext _context;
+    private readonly AdventureRepository _repo;
     private readonly IResponseSender _responseSender;
 
-    public ListCommandConversation(AdventureContext context, IResponseSender responseSender)
+    public ListCommandConversation(AdventureRepository repo, IResponseSender responseSender)
     {
-        _context = context;
+        _repo = repo;
         _responseSender = responseSender;
     }
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
     {
-        var adventures = await _context.Adventures.AsNoTracking().ToListAsync();
+        var adventures = await _repo.GetAllAdventuresAsync();
         return await _responseSender.SendResponsesAsync(adventures.Select(a => new Response
         {
             ChatId = update.Message!.Chat.Id,

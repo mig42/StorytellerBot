@@ -1,53 +1,36 @@
 using System.Text;
-using Microsoft.EntityFrameworkCore;
 using StorytellerBot.Data;
 using StorytellerBot.Models;
 using Telegram.Bot.Types;
-
-using User = StorytellerBot.Models.User;
 
 namespace StorytellerBot.Services.Conversations;
 
 public class StartCommandConversation : IConversation
 {
-    private readonly AdventureContext _context;
+    private readonly AdventureRepository _repo;
     private readonly IResponseSender _responseSender;
     private readonly IAdventureWriter _adventureWriter;
 
     public StartCommandConversation(
-        AdventureContext context, IResponseSender responseSender, IAdventureWriter adventureWriter)
+        AdventureRepository repo, IResponseSender responseSender, IAdventureWriter adventureWriter)
     {
-        _context = context;
+        _repo = repo;
         _responseSender = responseSender;
         _adventureWriter = adventureWriter;
     }
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == update.Message!.From!.Id);
-        if (user == null)
-        {
-            user = new User { Id = update.Message!.From!.Id };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-        }
+        var user = await _repo.GetOrCreateUserAsync(update.Message!.From!.Id);
 
         if (IsInvalidState(user.CommandProgress))
         {
-            if (user.CommandProgress != null)
-            {
-                _context.CommandProgresses.Remove(user.CommandProgress);
-            }
-
-            var startProgress = new CommandProgress
+            await _repo.ReplaceCommandProgressAsync(user, new CommandProgress
             {
                 Command = Commands.Start,
                 Step = State.Start,
                 UserId = user.Id,
-            };
-            user.CommandProgress = startProgress;
-            _context.CommandProgresses.Add(startProgress);
-            await _context.SaveChangesAsync();
+            });
 
             return await _responseSender.SendResponseAsync(new Response
             {
@@ -68,7 +51,7 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            if (!(await _context.Adventures.AsNoTracking().AnyAsync(a => a.Id == adventureId)))
+            if (!(await _repo.AdventureExistsAsync(adventureId.Value)))
             {
                 return await _responseSender.SendResponseAsync(new Response
                 {
@@ -79,9 +62,7 @@ public class StartCommandConversation : IConversation
 
             if (user.SavedGames.Any(a => a.Id == adventureId))
             {
-                user.CommandProgress.Argument = adventureId.ToString();
-                user.CommandProgress.Step = State.Confirm;
-                await _context.SaveChangesAsync();
+                await _repo.UpdateCommandProgressAsync(user.CommandProgress, State.Confirm, adventureId);
 
                 return await _responseSender.SendResponseAsync(new Response
                 {
@@ -90,28 +71,8 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            var newStatus = new SavedStatus
-            {
-                AdventureId = adventureId.Value,
-                UserId = user.Id,
-                LastUpdated = DateTime.UtcNow,
-            };
-            var currentGame = new CurrentGame
-            {
-                User = user,
-                SavedStatus = newStatus,
-            };
-
-            user.CommandProgress = null;
-            user.CurrentGame = currentGame;
-            if (user.CurrentGame != null)
-            {
-                _context.CurrentGames.Remove(user.CurrentGame);
-            }
-
-            _context.CurrentGames.Add(currentGame);
-            _context.SavedStatuses.Add(newStatus);
-            await _context.SaveChangesAsync();
+            await _repo.StartGameAsync(user, adventureId.Value, DateTime.UtcNow);
+            return Enumerable.Empty<Message>();
         }
 
         if (user.CommandProgress!.Step == State.Confirm)
@@ -119,40 +80,20 @@ public class StartCommandConversation : IConversation
             var text = update.Message!.Text!.ToLowerInvariant();
             if (text == "si" || text == "sí")
             {
-                var savedGame = user.SavedGames.First(s => s.AdventureId == int.Parse(user.CommandProgress.Argument!));
-                user.SavedGames.Remove(savedGame);
-                _context.SavedStatuses.Remove(savedGame);
-
-                var newStatus = new SavedStatus
+                if (!int.TryParse(user.CommandProgress.Argument! , out int adventureId))
                 {
-                    AdventureId = savedGame.AdventureId,
-                    UserId = user.Id,
-                    LastUpdated = DateTime.UtcNow,
-                };
-                var currentGame = new CurrentGame
-                {
-                    User = user,
-                    SavedStatus = newStatus,
-                };
-
-                user.CommandProgress = null;
-                if (user.CurrentGame != null)
-                {
-                    _context.CurrentGames.Remove(user.CurrentGame);
+                    await _repo.DeleteCommandProgressAsync(user.CommandProgress);
+                    return Enumerable.Empty<Message>();
                 }
-                user.CurrentGame = currentGame;
-                _context.SavedStatuses.Add(newStatus);
-                _context.CurrentGames.Add(currentGame);
-                await _context.SaveChangesAsync();
+
+                await _repo.ResetGameAsync(user.CommandProgress, user.CurrentGame!.SavedStatus, DateTime.UtcNow);
             }
             else
             {
-                user.CommandProgress = null;
-                await _context.SaveChangesAsync();
+                await _repo.DeleteCommandProgressAsync(user.CommandProgress);
                 return Enumerable.Empty<Message>();
             }
         }
-
 
         return await _responseSender.SendResponsesAsync(
             await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame!.SavedStatus));
@@ -176,7 +117,7 @@ public class StartCommandConversation : IConversation
 
     private async Task<string> BuildStartMessageAsync()
     {
-        var adventures = await _context.Adventures.AsNoTracking().ToListAsync();
+        var adventures = await _repo.GetAllAdventuresAsync();
 
         StringBuilder sb = new();
         sb.AppendLine("*Elige una aventura:*");

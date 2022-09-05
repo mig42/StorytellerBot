@@ -6,6 +6,6 @@ namespace StorytellerBot.Services
     public interface IAdventureWriter
     {
         Task<IEnumerable<Response>> GetCurrentStepMessagesAsync(ChatId chatId, SavedStatus? savedStatus);
-        Task<SavedStatus> AdvanceAdventureAsync(SavedStatus savedStatus, int decisionIndex);
+        Task<string> AdvanceAdventureAsync(SavedStatus savedStatus, int decisionIndex);
     }
 }

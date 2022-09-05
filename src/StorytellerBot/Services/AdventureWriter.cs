@@ -29,15 +29,16 @@ public class AdventureWriter : IAdventureWriter
         _logger = logger;
     }
 
-    async Task<SavedStatus> IAdventureWriter.AdvanceAdventureAsync(SavedStatus savedStatus, int decisionIndex)
+    async Task<string> IAdventureWriter.AdvanceAdventureAsync(SavedStatus savedStatus, int decisionIndex)
     {
         var story = await LoadStory(savedStatus);
-        if (story != null)
+        if (story == null)
         {
-            story.ChooseChoiceIndex(decisionIndex);
-            savedStatus.StoryState = story.state.ToJson();
+            return string.Empty;
         }
-        return savedStatus;
+
+        story.ChooseChoiceIndex(decisionIndex);
+        return story.state.ToJson();
     }
 
     async Task<IEnumerable<Response>> IAdventureWriter.GetCurrentStepMessagesAsync(ChatId chatId, SavedStatus? currentGame)
@@ -132,6 +133,16 @@ public class AdventureWriter : IAdventureWriter
     }
 
     public Task<SavedStatus> AdvanceAdventureAsync(SavedStatus savedStatus, string? decisionPath)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<SavedStatus> AdvanceAdventureAsync(SavedStatus savedStatus, int decisionIndex)
+    {
+        throw new NotImplementedException();
+    }
+
+    public string AdvanceAdventure(SavedStatus savedStatus, int decisionIndex)
     {
         throw new NotImplementedException();
     }

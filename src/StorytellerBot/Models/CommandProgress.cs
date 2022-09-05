@@ -12,5 +12,5 @@ public class CommandProgress
     public string? Argument { get; set; }
     public string Step { get; set; } = string.Empty;
     public long UserId { get; set; }
-    public User User { get; set; } = null!;
+    public virtual User User { get; set; } = null!;
 }

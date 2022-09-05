@@ -5,18 +5,18 @@ namespace StorytellerBot.Services.Conversations;
 
 public class CallbackConversation : IConversation
 {
-    private readonly AdventureContext _context;
+    private readonly AdventureRepository _repo;
     private readonly IResponseSender _responseSender;
     private readonly IAdventureWriter _adventureWriter;
     private readonly ILogger<CallbackConversation> _logger;
 
     public CallbackConversation(
-        AdventureContext context,
+        AdventureRepository repo,
         IResponseSender responseSender,
         IAdventureWriter adventureWriter,
         ILogger<CallbackConversation> logger)
     {
-        _context = context;
+        _repo = repo;
         _responseSender = responseSender;
         _adventureWriter = adventureWriter;
         _logger = logger;
@@ -28,7 +28,7 @@ public class CallbackConversation : IConversation
         await _responseSender.ClearInlineKeyboard(callbackQuery.Message!.Chat, callbackQuery.Message.MessageId);
 
         var userId = callbackQuery.From!.Id;
-        var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+        var user = await _repo.GetUserAsync(userId);
         if (user?.CurrentGame == null)
         {
             _logger.LogWarning(
@@ -50,9 +50,9 @@ public class CallbackConversation : IConversation
             return Array.Empty<Message>();
         }
 
-        user.CurrentGame.SavedStatus = await _adventureWriter.AdvanceAdventureAsync(
+        var newStoryState = await _adventureWriter.AdvanceAdventureAsync(
             user.CurrentGame.SavedStatus, choiceIndex);
-        await _context.SaveChangesAsync();
+        await _repo.UpdateSavedStatusAsync(user.CurrentGame.SavedStatus, newStoryState, DateTime.UtcNow);
 
         var responses = await _adventureWriter.GetCurrentStepMessagesAsync(
             callbackQuery.Message.Chat, user.CurrentGame.SavedStatus);

@@ -5,21 +5,21 @@ namespace StorytellerBot.Services.Conversations;
 
 public class TextConversation : IConversation
 {
-    private readonly AdventureContext _context;
-    private IResponseSender _responseSender;
-    private IConversationFactory _conversationFactory;
+    private readonly AdventureRepository _repo;
+    private readonly IResponseSender _responseSender;
+    private readonly IConversationFactory _conversationFactory;
 
     public TextConversation(
-        AdventureContext context, IResponseSender responseSender, IConversationFactory conversationFactory)
+        AdventureRepository repo, IResponseSender responseSender, IConversationFactory conversationFactory)
     {
-        _context = context;
+        _repo = repo;
         _responseSender = responseSender;
         _conversationFactory = conversationFactory;
     }
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
     {
-        var user = _context.Users.FirstOrDefault(u => u.Id == update.Message!.From!.Id);
+        var user = await _repo.GetUserAsync(update.Message!.From!.Id);
         if (user?.CommandProgress == null)
         {
             return Array.Empty<Message>();

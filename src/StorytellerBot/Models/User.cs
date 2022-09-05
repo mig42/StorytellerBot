@@ -10,7 +10,7 @@ public class User
     [DatabaseGenerated(DatabaseGeneratedOption.None)]
     public long Id { get; set; }
 
-    public List<SavedStatus> SavedGames { get; set; } = new();
-    public CurrentGame? CurrentGame { get; set; }
-    public CommandProgress? CommandProgress { get; set; }
+    public virtual List<SavedStatus> SavedGames { get; set; } = new();
+    public virtual CurrentGame? CurrentGame { get; set; }
+    public virtual CommandProgress? CommandProgress { get; set; }
 }

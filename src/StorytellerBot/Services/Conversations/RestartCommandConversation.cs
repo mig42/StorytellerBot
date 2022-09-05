@@ -1,57 +1,44 @@
-using Microsoft.EntityFrameworkCore;
 using StorytellerBot.Data;
 using StorytellerBot.Models;
 using Telegram.Bot.Types;
-
-using User = StorytellerBot.Models.User;
 
 namespace StorytellerBot.Services.Conversations;
 
 public class RestartCommandConversation : IConversation
 {
-    private readonly AdventureContext _context;
+    private readonly AdventureRepository _repo;
     private readonly IResponseSender _responseSender;
     private readonly IAdventureWriter _adventureWriter;
 
     public RestartCommandConversation(
-        AdventureContext context, IResponseSender responseSender, IAdventureWriter adventureWriter)
+        AdventureRepository repo, IResponseSender responseSender, IAdventureWriter adventureWriter)
     {
-        _context = context;
+        _repo = repo;
         _responseSender = responseSender;
         _adventureWriter = adventureWriter;
     }
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == update.Message!.From!.Id);
-        if (user == null)
-        {
-            user = new User { Id = update.Message!.From!.Id };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-        }
+        var user = await _repo.GetUserAsync(update.Message!.From!.Id);
 
-        if (user.CurrentGame == null)
+        if (user?.CurrentGame == null)
         {
-            return Enumerable.Empty<Message>();
+            return await _responseSender.SendResponseAsync(new Response
+            {
+                ChatId = update.Message!.Chat,
+                Text = $"No estás jugando ninguna aventura. Usa el comando /{Commands.Start} para empezar a jugar.",
+            });
         }
 
         if (IsInvalidState(user.CommandProgress))
         {
-            if (user.CommandProgress != null)
-            {
-                _context.CommandProgresses.Remove(user.CommandProgress);
-            }
-
-            var restartProgress = new CommandProgress
+            await _repo.ReplaceCommandProgressAsync(user, new CommandProgress
             {
                 Command = Commands.Restart,
                 Step = State.Confirm,
                 UserId = user.Id,
-            };
-            user.CommandProgress = restartProgress;
-            _context.CommandProgresses.Add(restartProgress);
-            await _context.SaveChangesAsync();
+            });
 
             return await _responseSender.SendResponseAsync(new Response
             {
@@ -62,9 +49,7 @@ public class RestartCommandConversation : IConversation
 
         if (user.CommandProgress!.Step == State.Confirm)
         {
-            user.CommandProgress = null;
-            user.CurrentGame.SavedStatus.StoryState = null;
-            await _context.SaveChangesAsync();
+            await _repo.ResetGameAsync(user.CommandProgress, user.CurrentGame.SavedStatus, DateTime.UtcNow);
 
             return await _responseSender.SendResponsesAsync(
                 await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame.SavedStatus));

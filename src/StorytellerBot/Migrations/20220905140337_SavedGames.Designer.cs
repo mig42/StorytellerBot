@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StorytellerBot.Data;
 
@@ -10,9 +11,10 @@ using StorytellerBot.Data;
 namespace StorytellerBot.Migrations
 {
     [DbContext(typeof(AdventureContext))]
-    partial class AdventureContextModelSnapshot : ModelSnapshot
+    [Migration("20220905140337_SavedGames")]
+    partial class SavedGames
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "6.0.8");

@@ -36,14 +36,16 @@ public class Startup
             .AddTypedClient<ITelegramBotClient>(
                 httpClient => new TelegramBotClient(botToken, httpClient));
 
-        services.AddScoped<IMessageGeneratorFactory, MessageGeneratorFactory>();
-        services.AddScoped<ResponseSender>();
+        services.AddScoped<IConversationFactory, ConversationFactory>();
+        services.AddScoped<IResponseSender, ResponseSender>();
+        services.AddScoped<IAdventureWriter, AdventureWriter>();
 
-        services.AddTransient<ICallbackConversation, CallbackConversation>();
-        services.AddTransient<ITextConversation, TextConversation>();
-        services.AddTransient<IStartCommandConversation, StartCommandConversation>();
-        services.AddTransient<IRestartCommandConversation, RestartCommandConversation>();
-        services.AddTransient<IListCommandConversation, ListCommandConversation>();
+        services.AddTransient<CallbackConversation>();
+        services.AddTransient<TextConversation>();
+        services.AddTransient<StartCommandConversation>();
+        services.AddTransient<RestartCommandConversation>();
+        services.AddTransient<ListCommandConversation>();
+        services.AddTransient<NoopConversation>();
 
         services
             .AddControllers()

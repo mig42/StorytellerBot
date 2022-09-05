@@ -2,8 +2,9 @@ using Telegram.Bot.Types;
 
 namespace StorytellerBot.Services
 {
-    public interface IMessageGeneratorFactory
+    public interface IConversationFactory
     {
-        IConversation? Create(Update update);
+        IConversation Create(Update update);
+        IConversation CreateForCommand(string command);
     }
 }

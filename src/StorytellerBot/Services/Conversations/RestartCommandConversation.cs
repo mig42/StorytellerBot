@@ -7,15 +7,18 @@ using User = StorytellerBot.Models.User;
 
 namespace StorytellerBot.Services.Conversations;
 
-public class RestartCommandConversation : IRestartCommandConversation
+public class RestartCommandConversation : IConversation
 {
     private readonly AdventureContext _context;
     private readonly IResponseSender _responseSender;
+    private readonly IAdventureWriter _adventureWriter;
 
-    public RestartCommandConversation(AdventureContext context, IResponseSender responseSender)
+    public RestartCommandConversation(
+        AdventureContext context, IResponseSender responseSender, IAdventureWriter adventureWriter)
     {
         _context = context;
         _responseSender = responseSender;
+        _adventureWriter = adventureWriter;
     }
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
@@ -63,7 +66,8 @@ public class RestartCommandConversation : IRestartCommandConversation
             user.CurrentGame.StoryState = null;
             await _context.SaveChangesAsync();
 
-            // TODO print first message
+            return await _responseSender.SendResponsesAsync(
+                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame));
         }
 
         return Enumerable.Empty<Message>();

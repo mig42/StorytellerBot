@@ -16,12 +16,12 @@ namespace StorytellerBot.Controllers;
 public class WebhookController : ControllerBase
 {
     private readonly string _webhookToken;
-    private readonly IMessageGeneratorFactory _messageGeneratorFactory;
+    private readonly IConversationFactory _messageGeneratorFactory;
     private readonly ILogger<WebhookController> _logger;
 
     public WebhookController(
         IOptionsSnapshot<BotConfiguration> botConfiguration,
-        IMessageGeneratorFactory messageGeneratorFactory,
+        IConversationFactory messageGeneratorFactory,
         ILogger<WebhookController> logger)
     {
         _webhookToken = botConfiguration.Value?.WebhookToken ?? string.Empty;

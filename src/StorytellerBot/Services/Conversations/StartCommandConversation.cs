@@ -8,15 +8,18 @@ using User = StorytellerBot.Models.User;
 
 namespace StorytellerBot.Services.Conversations;
 
-public class StartCommandConversation : IStartCommandConversation
+public class StartCommandConversation : IConversation
 {
     private readonly AdventureContext _context;
     private readonly IResponseSender _responseSender;
+    private readonly IAdventureWriter _adventureWriter;
 
-    public StartCommandConversation(AdventureContext context, IResponseSender responseSender)
+    public StartCommandConversation(
+        AdventureContext context, IResponseSender responseSender, IAdventureWriter adventureWriter)
     {
         _context = context;
         _responseSender = responseSender;
+        _adventureWriter = adventureWriter;
     }
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
@@ -113,17 +116,17 @@ public class StartCommandConversation : IStartCommandConversation
                     LastUpdated = DateTime.UtcNow,
                 };
                 await _context.SaveChangesAsync();
-
-                // TODO start new adventure
             }
             else
             {
                 user.CommandProgress = null;
                 await _context.SaveChangesAsync();
+                return Enumerable.Empty<Message>();
             }
         }
+        return await _responseSender.SendResponsesAsync(
+            await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame));
 
-        return Enumerable.Empty<Message>();
     }
 
     private static bool IsInvalidState(CommandProgress? command)

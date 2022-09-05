@@ -5,7 +5,7 @@ using Telegram.Bot.Types;
 
 namespace StorytellerBot.Services.Conversations;
 
-public class ListCommandConversation : IListCommandConversation
+public class ListCommandConversation : IConversation
 {
     private readonly AdventureContext _context;
     private readonly IResponseSender _responseSender;

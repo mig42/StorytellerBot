@@ -19,21 +19,15 @@ public class ConversationFactory : IConversationFactory
         return message?.From != null;
     }
 
-    public IConversation? CreateForCommand(string command)
+    public IConversation CreateForCommand(string command)
     {
-        return command switch
-        {
-            Commands.Start   => _serviceProvider.GetRequiredService<StartCommandConversation>(),
-            Commands.Restart => _serviceProvider.GetRequiredService<RestartCommandConversation>(),
-            Commands.List    => _serviceProvider.GetRequiredService<ListCommandConversation>(),
-            _                => _serviceProvider.GetRequiredService<NoopConversation>(),
-        };
+        return GetConversationForCommand(command, false);
     }
 
-    IConversation? IConversationFactory.Create(Update update)
+    IConversation IConversationFactory.Create(Update update)
     {
         if (HasSender(update))
-            return null;
+            return _serviceProvider.GetRequiredService<NoopConversation>();
 
         return update.Type switch
         {
@@ -46,20 +40,32 @@ public class ConversationFactory : IConversationFactory
             // UpdateType.Poll:
             // UpdateType.InlineQuery:
             // UpdateType.ChosenInlineResult:
-            UpdateType.Message            => GetConversation(update.Message!),
-            UpdateType.CallbackQuery      => _serviceProvider.GetService<CallbackConversation>(),
-            _                             => _serviceProvider.GetService<NoopConversation>(),
+            UpdateType.Message            => GetConversationForCommand(GetCommandFromMessage(update.Message!), true),
+            UpdateType.CallbackQuery      => _serviceProvider.GetRequiredService<CallbackConversation>(),
+            _                             => _serviceProvider.GetRequiredService<NoopConversation>(),
         };
     }
 
-    private IConversation? GetConversation(Message message)
+    private static string GetCommandFromMessage(Message message)
     {
-        return message.Text switch
+        var text = message.Text;
+        if (text == null)
+            return string.Empty;
+
+        var command = text.Split(' ', 2)[0];
+        return command.StartsWith('/') ? command[1..] : string.Empty;
+    }
+
+    private IConversation GetConversationForCommand(string command, bool allowTextConversation)
+    {
+        return command switch
         {
-            $"/{Commands.Start} "   => _serviceProvider.GetService<StartCommandConversation>(),
-            $"/{Commands.Restart} " => _serviceProvider.GetService<RestartCommandConversation>(),
-            $"/{Commands.List} "    => _serviceProvider.GetService<ListCommandConversation>(),
-            _                       => _serviceProvider.GetService<TextConversation>(),
+            Commands.Start   => _serviceProvider.GetRequiredService<StartCommandConversation>(),
+            Commands.Restart => _serviceProvider.GetRequiredService<RestartCommandConversation>(),
+            Commands.List    => _serviceProvider.GetRequiredService<ListCommandConversation>(),
+            _                => allowTextConversation
+                ? _serviceProvider.GetRequiredService<TextConversation>()
+                : _serviceProvider.GetRequiredService<NoopConversation>(),
         };
     }
 }

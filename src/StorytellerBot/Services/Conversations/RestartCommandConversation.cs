@@ -1,6 +1,7 @@
 using StorytellerBot.Data;
 using StorytellerBot.Models;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace StorytellerBot.Services.Conversations;
 
@@ -48,6 +49,11 @@ public class RestartCommandConversation : IConversation
             {
                 ChatId = update.Message!.Chat.Id,
                 Text = "Reiniciar la aventura borrará todos los datos de la partida actual. ¿Quieres continuar?",
+                ReplyMarkup = new ReplyKeyboardMarkup(new[]
+                {
+                    new KeyboardButton("Sí"),
+                    new KeyboardButton("No"),
+                }),
             });
         }
 

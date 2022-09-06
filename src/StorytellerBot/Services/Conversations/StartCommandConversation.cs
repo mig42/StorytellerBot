@@ -2,6 +2,7 @@ using System.Text;
 using StorytellerBot.Data;
 using StorytellerBot.Models;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace StorytellerBot.Services.Conversations;
 
@@ -70,6 +71,11 @@ public class StartCommandConversation : IConversation
                 {
                     ChatId = update.Message!.Chat.Id,
                     Text = "Tienes una aventura guardada con ese número, se borrará su progreso. ¿Quieres continuar?",
+                    ReplyMarkup = new ReplyKeyboardMarkup(new[]
+                    {
+                        new KeyboardButton("Sí"),
+                        new KeyboardButton("No"),
+                    }),
                 });
             }
 

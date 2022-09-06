@@ -1,7 +1,6 @@
 using StorytellerBot.Data;
 using StorytellerBot.Models;
 using Telegram.Bot.Types;
-using Telegram.Bot.Types.ReplyMarkups;
 
 namespace StorytellerBot.Services.Conversations;
 
@@ -49,21 +48,25 @@ public class RestartCommandConversation : IConversation
             {
                 ChatId = update.Message!.Chat.Id,
                 Text = "Reiniciar la aventura borrará todos los datos de la partida actual. ¿Quieres continuar?",
-                ReplyMarkup = new ReplyKeyboardMarkup(new[]
-                {
-                    new KeyboardButton("Sí"),
-                    new KeyboardButton("No"),
-                }),
+                ReplyMarkup = ConfirmationKeyboard.Create(),
             });
         }
 
         if (commandProgress!.Step == State.Confirm)
         {
             await _repo.DeleteCommandProgressAsync(commandProgress);
-            await _repo.UpdateSavedStatusAsync(currentGame.SavedStatus, string.Empty, DateTime.UtcNow);
 
-            return await _responseSender.SendResponsesAsync(
-                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus));
+            if (ConfirmationKeyboard.IsAccept(update.Message!.Text))
+            {
+                await _repo.UpdateSavedStatusAsync(currentGame.SavedStatus, string.Empty, DateTime.UtcNow);
+
+                return await _responseSender.SendResponsesAsync(
+                    await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus));
+            }
+            else
+            {
+                return Enumerable.Empty<Message>();
+            }
         }
 
         return Enumerable.Empty<Message>();

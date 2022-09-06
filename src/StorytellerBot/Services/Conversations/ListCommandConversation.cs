@@ -21,7 +21,7 @@ public class ListCommandConversation : IConversation
         return await _responseSender.SendResponsesAsync(adventures.Select(a => new Response
         {
             ChatId = update.Message!.Chat.Id,
-            Text = $"📜 *{a.Id}: _{a.Name}*_\n\n{a.Description}",
+            Text = $"📜 *{a.Id}: _{a.Name}_*\n\n{a.Description}",
         }));
     }
 }

@@ -28,8 +28,8 @@ public class CallbackConversation : IConversation
         await _responseSender.ClearInlineKeyboard(callbackQuery.Message!.Chat, callbackQuery.Message.MessageId);
 
         var userId = callbackQuery.From!.Id;
-        var user = await _repo.GetUserAsync(userId);
-        if (user?.CurrentGame == null)
+        var currentGame = await _repo.GetCurrentGameForUserAsync(userId);
+        if (currentGame == null)
         {
             _logger.LogWarning(
                 "Unable to handle callback #{CallbackId}, unknown user #{UserId}", callbackQuery.Id, userId);
@@ -51,11 +51,15 @@ public class CallbackConversation : IConversation
         }
 
         var newStoryState = await _adventureWriter.AdvanceAdventureAsync(
-            user.CurrentGame.SavedStatus, choiceIndex);
-        await _repo.UpdateSavedStatusAsync(user.CurrentGame.SavedStatus, newStoryState, DateTime.UtcNow);
+            currentGame.SavedStatus, choiceIndex);
+        await _repo.UpdateSavedStatusAsync(currentGame.SavedStatus, newStoryState, DateTime.UtcNow);
 
         var responses = await _adventureWriter.GetCurrentStepMessagesAsync(
-            callbackQuery.Message.Chat, user.CurrentGame.SavedStatus);
+            callbackQuery.Message.Chat, currentGame.SavedStatus);
+        if (responses.Any(r => r.IsEndOfAdventure))
+        {
+            await _repo.DeleteSavedStatusAsync(currentGame.SavedStatus);
+        }
         return await _responseSender.SendResponsesAsync(responses);
     }
 }

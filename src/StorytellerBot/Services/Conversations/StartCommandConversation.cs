@@ -22,10 +22,12 @@ public class StartCommandConversation : IConversation
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
     {
         var user = await _repo.GetOrCreateUserAsync(update.Message!.From!.Id);
+        var commandProgress = await _repo.GetCommandProgressForUserAsync(user.Id);
 
-        if (IsInvalidState(user.CommandProgress))
+        if (IsInvalidState(commandProgress))
         {
-            await _repo.ReplaceCommandProgressAsync(user, new CommandProgress
+            await _repo.DeleteCommandProgressAsync(commandProgress);
+            await _repo.CreateCommandProgressAsync(new CommandProgress
             {
                 Command = Commands.Start,
                 Step = State.Start,
@@ -39,7 +41,7 @@ public class StartCommandConversation : IConversation
             });
         }
 
-        if (user.CommandProgress!.Step == State.Start)
+        if (commandProgress!.Step == State.Start)
         {
             int? adventureId = ParseAdventureId(update.Message!);
             if (adventureId == null)
@@ -62,7 +64,7 @@ public class StartCommandConversation : IConversation
 
             if (user.SavedGames.Any(a => a.Id == adventureId))
             {
-                await _repo.UpdateCommandProgressAsync(user.CommandProgress, State.Confirm, adventureId);
+                await _repo.UpdateCommandProgressAsync(commandProgress, State.Confirm, adventureId);
 
                 return await _responseSender.SendResponseAsync(new Response
                 {
@@ -75,29 +77,32 @@ public class StartCommandConversation : IConversation
             return Enumerable.Empty<Message>();
         }
 
-        if (user.CommandProgress!.Step == State.Confirm)
+        if (commandProgress!.Step == State.Confirm)
         {
             var text = update.Message!.Text!.ToLowerInvariant();
             if (text == "si" || text == "sí")
             {
-                if (!int.TryParse(user.CommandProgress.Argument! , out int adventureId))
+                await _repo.DeleteCommandProgressAsync(commandProgress);
+
+                if (!int.TryParse(commandProgress.Argument! , out int adventureId))
                 {
-                    await _repo.DeleteCommandProgressAsync(user.CommandProgress);
+                    await _repo.DeleteCommandProgressAsync(commandProgress);
                     return Enumerable.Empty<Message>();
                 }
 
-                await _repo.ResetGameAsync(user.CommandProgress, user.CurrentGame!.SavedStatus, DateTime.UtcNow);
+                var currentGame = await _repo.GetCurrentGameForUserAsync(user.Id);
+                await _repo.UpdateSavedStatusAsync(currentGame?.SavedStatus, string.Empty, DateTime.UtcNow);
+                return await _responseSender.SendResponsesAsync(
+                    await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame?.SavedStatus));
             }
             else
             {
-                await _repo.DeleteCommandProgressAsync(user.CommandProgress);
+                await _repo.DeleteCommandProgressAsync(commandProgress);
                 return Enumerable.Empty<Message>();
             }
         }
 
-        return await _responseSender.SendResponsesAsync(
-            await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame!.SavedStatus));
-
+        return Enumerable.Empty<Message>();
     }
 
     private static bool IsInvalidState(CommandProgress? command)

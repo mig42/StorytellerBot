@@ -20,9 +20,10 @@ public class RestartCommandConversation : IConversation
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
     {
-        var user = await _repo.GetUserAsync(update.Message!.From!.Id);
+        var user = await _repo.GetOrCreateUserAsync(update.Message!.From!.Id);
+        var currentGame = await _repo.GetCurrentGameForUserAsync(user.Id);
 
-        if (user?.CurrentGame == null)
+        if (currentGame == null)
         {
             return await _responseSender.SendResponseAsync(new Response
             {
@@ -31,9 +32,12 @@ public class RestartCommandConversation : IConversation
             });
         }
 
-        if (IsInvalidState(user.CommandProgress))
+        var commandProgress = await _repo.GetCommandProgressForUserAsync(update.Message!.From!.Id);
+
+        if (IsInvalidState(commandProgress))
         {
-            await _repo.ReplaceCommandProgressAsync(user, new CommandProgress
+            await _repo.DeleteCommandProgressAsync(commandProgress);
+            await _repo.CreateCommandProgressAsync(new CommandProgress
             {
                 Command = Commands.Restart,
                 Step = State.Confirm,
@@ -47,12 +51,13 @@ public class RestartCommandConversation : IConversation
             });
         }
 
-        if (user.CommandProgress!.Step == State.Confirm)
+        if (commandProgress!.Step == State.Confirm)
         {
-            await _repo.ResetGameAsync(user.CommandProgress, user.CurrentGame.SavedStatus, DateTime.UtcNow);
+            await _repo.DeleteCommandProgressAsync(commandProgress);
+            await _repo.UpdateSavedStatusAsync(currentGame.SavedStatus, string.Empty, DateTime.UtcNow);
 
             return await _responseSender.SendResponsesAsync(
-                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, user.CurrentGame.SavedStatus));
+                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus));
         }
 
         return Enumerable.Empty<Message>();

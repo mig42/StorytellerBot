@@ -11,6 +11,4 @@ public class User
     public long Id { get; set; }
 
     public virtual List<SavedStatus> SavedGames { get; set; } = new();
-    public virtual CurrentGame? CurrentGame { get; set; }
-    public virtual CommandProgress? CommandProgress { get; set; }
 }

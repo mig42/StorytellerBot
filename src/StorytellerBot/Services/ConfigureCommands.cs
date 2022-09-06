@@ -22,15 +22,8 @@ public class ConfigureCommands : IHostedService
         var botClient = scope.ServiceProvider.GetRequiredService<ITelegramBotClient>();
 
         _logger.LogInformation("Setting commands");
-        foreach (var (language, commands) in Commands.GetAll())
-        {
-            if (cancellationToken.IsCancellationRequested)
-                break;
-
-            _logger.LogInformation("Setting commands for language {language}", language);
-            await botClient.SetMyCommandsAsync(
-                commands, BotCommandScope.AllPrivateChats(), language, cancellationToken);
-        }
+        await botClient.SetMyCommandsAsync(
+            Commands.GetAll(), BotCommandScope.AllPrivateChats(), cancellationToken: cancellationToken);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
@@ -38,6 +31,11 @@ public class ConfigureCommands : IHostedService
         using var scope = _services.CreateScope();
         var botClient = scope.ServiceProvider.GetRequiredService<ITelegramBotClient>();
 
+        var commands = await botClient.GetMyCommandsAsync();
+        foreach (var command in commands)
+        {
+            _logger.LogWarning("[POST] Detected command '{Command}': {Description}", command.Command, command.Description);
+        }
         _logger.LogInformation("Removing commands");
         await botClient.DeleteMyCommandsAsync();
     }

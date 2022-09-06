@@ -26,7 +26,7 @@ public class ConversationFactory : IConversationFactory
 
     IConversation IConversationFactory.Create(Update update)
     {
-        if (HasSender(update))
+        if (!HasSender(update))
             return _serviceProvider.GetRequiredService<NoopConversation>();
 
         return update.Type switch

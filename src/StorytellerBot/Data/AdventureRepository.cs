@@ -12,7 +12,8 @@ public class AdventureRepository
     }
 
     #region User
-    public async Task<User?> GetUserAsync(long userId) => await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+    public async Task<User?> GetUserAsync(long userId) =>
+        await _context.Users.Include(u => u.SavedGames).FirstOrDefaultAsync(u => u.Id == userId);
 
     public async Task<User> GetOrCreateUserAsync(long userId)
     {
@@ -31,26 +32,33 @@ public class AdventureRepository
 
     #region SavedStatus
 
-    public async Task UpdateSavedStatusAsync(SavedStatus savedStatus, string storyState, DateTime utcNow)
+    public async Task UpdateSavedStatusAsync(SavedStatus? savedStatus, string storyState, DateTime utcNow)
     {
+        if (savedStatus == null)
+        {
+            return;
+        }
         savedStatus.StoryState = storyState;
         _context.SavedStatuses.Update(savedStatus);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteSavedStatusAsync(SavedStatus savedStatus)
+    {
+        _context.SavedStatuses.Remove(savedStatus);
         await _context.SaveChangesAsync();
     }
 
     #endregion
 
     #region CommandProgress
-    public async Task ReplaceCommandProgressAsync(User user, CommandProgress newCommandProgress)
-    {
-        if (user.CommandProgress != null)
-        {
-            _context.CommandProgresses.Remove(user.CommandProgress);
-        }
 
-        user.CommandProgress = newCommandProgress;
+    public async Task<CommandProgress?> GetCommandProgressForUserAsync(long userId) =>
+        await _context.CommandProgresses.FirstOrDefaultAsync(cp => cp.UserId == userId);
+
+    public async Task CreateCommandProgressAsync(CommandProgress newCommandProgress)
+    {
         _context.CommandProgresses.Add(newCommandProgress);
-        await _context.SaveChangesAsync();
         await _context.SaveChangesAsync();
     }
 
@@ -63,9 +71,34 @@ public class AdventureRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task DeleteCommandProgressAsync(CommandProgress commandProgress)
+    public async Task DeleteCommandProgressAsync(CommandProgress? commandProgress)
     {
+        if (commandProgress == null)
+        {
+            return;
+        }
         _context.CommandProgresses.Remove(commandProgress);
+        await _context.SaveChangesAsync();
+    }
+
+    #endregion
+
+    #region CurrentGame
+
+    public async Task<CurrentGame?> GetCurrentGameForUserAsync(long userId)
+    {
+        return await _context.CurrentGames
+            .Include(cg => cg.SavedStatus.Adventure)
+            .FirstOrDefaultAsync(cg => cg.UserId == userId);
+    }
+
+    public async Task DeleteCurrentGameAsync(CurrentGame? currentGame)
+    {
+        if (currentGame == null)
+        {
+            return;
+        }
+        _context.CurrentGames.Remove(currentGame);
         await _context.SaveChangesAsync();
     }
 
@@ -75,18 +108,6 @@ public class AdventureRepository
 
     public async Task StartGameAsync(User user, int adventureId, DateTime utcNow)
     {
-        if (user.CommandProgress != null)
-        {
-            _context.CommandProgresses.Remove(user.CommandProgress);
-        }
-
-        if (user.CurrentGame != null)
-        {
-            _context.SavedStatuses.Remove(user.CurrentGame.SavedStatus);
-            _context.CurrentGames.Remove(user.CurrentGame);
-            user.CurrentGame = null;
-        }
-
         var newSavedStatus = new SavedStatus
         {
             AdventureId = adventureId,
@@ -97,15 +118,6 @@ public class AdventureRepository
         await _context.SaveChangesAsync();
 
         _context.CurrentGames.Add(new CurrentGame { UserId = user.Id, SavedStatusId = newSavedStatus.Id });
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task ResetGameAsync(CommandProgress commandProgress, SavedStatus savedStatus, DateTime utcNow)
-    {
-        savedStatus.StoryState = null;
-        savedStatus.LastUpdated = utcNow;
-        _context.SavedStatuses.Update(savedStatus);
-        _context.CommandProgresses.Remove(commandProgress);
         await _context.SaveChangesAsync();
     }
 

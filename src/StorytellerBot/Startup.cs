@@ -23,6 +23,7 @@ public class Startup
         services.AddDatabaseDeveloperPageExceptionFilter();
 
         services.AddHostedService<ConfigureWebhook>();
+        services.AddHostedService<ConfigureCommands>();
 
         var botConfigurationSection = Configuration.GetSection(nameof(BotConfiguration));
         var botToken = botConfigurationSection
@@ -36,6 +37,7 @@ public class Startup
             .AddTypedClient<ITelegramBotClient>(
                 httpClient => new TelegramBotClient(botToken, httpClient));
 
+        services.AddScoped<AdventureRepository>();
         services.AddScoped<IConversationFactory, ConversationFactory>();
         services.AddScoped<IResponseSender, ResponseSender>();
         services.AddScoped<IAdventureWriter, AdventureWriter>();

@@ -37,6 +37,10 @@ public class AdventureWriter : IAdventureWriter
             return string.Empty;
         }
 
+        while (story.canContinue)
+        {
+            story.Continue();
+        }
         story.ChooseChoiceIndex(decisionIndex);
         return story.state.ToJson();
     }
@@ -58,7 +62,7 @@ public class AdventureWriter : IAdventureWriter
             return Enumerable.Empty<Response>();
         }
 
-        return adventureStep.Paragraphs
+        var result = adventureStep.Paragraphs
             .SkipLast(1)
             .Select(p => new Response
             {
@@ -71,6 +75,18 @@ public class AdventureWriter : IAdventureWriter
                 Text = adventureStep.Paragraphs.Last(),
                 ReplyMarkup = BuildDecisionsInlineKeyboard(adventureStep),
             });
+
+        if (adventureStep.IsEnding)
+        {
+            result = result.Append(new Response
+            {
+                ChatId = chatId,
+                Text = $"La aventura ha llegado a su fin. Utiliza /{Commands.Start} para comenzar una nueva.",
+                ReplyMarkup = new ReplyKeyboardRemove(),
+                IsEndOfAdventure = true,
+            });
+        }
+        return result;
     }
 
     private async Task<AdventureStep?> GetNextStep(SavedStatus? savedStatus)

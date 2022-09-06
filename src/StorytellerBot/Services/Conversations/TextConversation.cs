@@ -19,13 +19,13 @@ public class TextConversation : IConversation
 
     async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
     {
-        var user = await _repo.GetUserAsync(update.Message!.From!.Id);
-        if (user?.CommandProgress == null)
+        var commandProgress = await _repo.GetCommandProgressForUserAsync(update.Message!.From!.Id);
+        if (commandProgress == null)
         {
             return Array.Empty<Message>();
         }
 
-        var conversation = _conversationFactory.CreateForCommand(user.CommandProgress.Command);
+        var conversation = _conversationFactory.CreateForCommand(commandProgress.Command);
         return await conversation.SendResponsesAsync(update);
     }
 }

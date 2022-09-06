@@ -32,7 +32,7 @@ public class ConfigureWebhook : IHostedService
 
         await botClient.SetWebhookAsync(
             url: webhookAddress,
-            allowedUpdates: Array.Empty<UpdateType>(),
+            allowedUpdates: new UpdateType[] { UpdateType.Message, UpdateType.CallbackQuery },
             cancellationToken: cancellationToken);
     }
 

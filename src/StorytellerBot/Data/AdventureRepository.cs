@@ -106,7 +106,7 @@ public class AdventureRepository
 
     #region Mixed
 
-    public async Task StartGameAsync(User user, int adventureId, DateTime utcNow)
+    public async Task<CurrentGame> StartGameAsync(User user, int adventureId, DateTime utcNow)
     {
         var newSavedStatus = new SavedStatus
         {
@@ -117,8 +117,10 @@ public class AdventureRepository
         _context.SavedStatuses.Add(newSavedStatus);
         await _context.SaveChangesAsync();
 
-        _context.CurrentGames.Add(new CurrentGame { UserId = user.Id, SavedStatusId = newSavedStatus.Id });
+        var newCurrentGame = new CurrentGame { UserId = user.Id, SavedStatusId = newSavedStatus.Id };
+        _context.CurrentGames.Add(newCurrentGame);
         await _context.SaveChangesAsync();
+        return newCurrentGame;
     }
 
     #endregion

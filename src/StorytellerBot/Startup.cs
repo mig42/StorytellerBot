@@ -41,6 +41,7 @@ public class Startup
         services.AddScoped<IConversationFactory, ConversationFactory>();
         services.AddScoped<IResponseSender, ResponseSender>();
         services.AddScoped<IAdventureWriter, AdventureWriter>();
+        services.AddScoped<IMediaLocator, MediaLocator>();
 
         services.AddTransient<CallbackConversation>();
         services.AddTransient<TextConversation>();

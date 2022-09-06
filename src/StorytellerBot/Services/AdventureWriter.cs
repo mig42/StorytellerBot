@@ -19,7 +19,7 @@ public class AdventureWriter : IAdventureWriter
     private const string EXTENSION = ".json";
 
     public AdventureWriter(
-        IOptionsSnapshot<GameConfiguration> gameConfig,
+        IOptions<GameConfiguration> gameConfig,
         IHostEnvironment environment,
         AdventureContext context,
         ILogger<AdventureWriter> logger)
@@ -63,17 +63,14 @@ public class AdventureWriter : IAdventureWriter
         }
 
         var result = adventureStep.Paragraphs
-            .SkipLast(1)
-            .Select(p => new Response
+            .Select((p, idx) => new Response
             {
                 ChatId = chatId,
-                Text = p,
-            })
-            .Append(new Response
-            {
-                ChatId = chatId,
-                Text = adventureStep.Paragraphs.Last(),
-                ReplyMarkup = BuildDecisionsInlineKeyboard(adventureStep),
+                Text = p.Text,
+                Image = p.Image,
+                ReplyMarkup = idx == adventureStep.Paragraphs.Count() - 1
+                    ? BuildDecisionsInlineKeyboard(adventureStep)
+                    : null,
             });
 
         if (adventureStep.IsEnding)
@@ -95,11 +92,15 @@ public class AdventureWriter : IAdventureWriter
         if (story == null)
             return null;
 
-        var paragraphs = new List<string>();
+        var paragraphs = new List<Paragraph>();
         while (story.canContinue)
         {
             story.Continue();
-            paragraphs.Add(story.currentText);
+            paragraphs.Add(new Paragraph
+            {
+                Text = story.currentText,
+                Tags = story.currentTags,
+            });
         }
 
         return new AdventureStep
@@ -141,25 +142,5 @@ public class AdventureWriter : IAdventureWriter
         {
             InlineKeyboardButton.WithCallbackData(decision.Text, decision.ChoiceIndex.ToString()),
         }));
-    }
-
-    public Task<IEnumerable<Response>> GetCurrentStepMessagesAsync(SavedStatus? savedStatus)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<SavedStatus> AdvanceAdventureAsync(SavedStatus savedStatus, string? decisionPath)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<SavedStatus> AdvanceAdventureAsync(SavedStatus savedStatus, int decisionIndex)
-    {
-        throw new NotImplementedException();
-    }
-
-    public string AdvanceAdventure(SavedStatus savedStatus, int decisionIndex)
-    {
-        throw new NotImplementedException();
     }
 }

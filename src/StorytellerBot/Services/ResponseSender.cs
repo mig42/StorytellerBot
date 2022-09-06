@@ -3,6 +3,7 @@ using StorytellerBot.Models;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace StorytellerBot.Services;
@@ -10,11 +11,13 @@ namespace StorytellerBot.Services;
 public class ResponseSender : IResponseSender
 {
     private readonly ITelegramBotClient _botClient;
+    private readonly IMediaLocator _mediaLocator;
     private readonly ILogger<ResponseSender> _logger;
 
-    public ResponseSender(ITelegramBotClient botClient, ILogger<ResponseSender> logger)
+    public ResponseSender(ITelegramBotClient botClient, IMediaLocator mediaLocator, ILogger<ResponseSender> logger)
     {
         _botClient = botClient;
+        _mediaLocator = mediaLocator;
         _logger = logger;
     }
 
@@ -46,10 +49,21 @@ public class ResponseSender : IResponseSender
             await Task.Delay(response.Delay.Value);
         }
         _logger.LogInformation("Sending response to chat {ChatId}: {Text}", response.ChatId, response.Text);
+
+        if (_mediaLocator.IsExistingMedia(response.Image))
+        {
+            using Stream imageStream = _mediaLocator.OpenMedia(response.Image);
+            return await _botClient.SendPhotoAsync(
+                response.ChatId,
+                new InputOnlineFile(imageStream, response.Image),
+                response.Text,
+                ParseMode.MarkdownV2,
+                replyMarkup: response.ReplyMarkup);
+        }
         return await _botClient.SendTextMessageAsync(
-            chatId: response.ChatId,
-            text: ProtectMessage(response.Text),
-            parseMode: ParseMode.MarkdownV2,
+            response.ChatId,
+            ProtectMessage(response.Text),
+            ParseMode.MarkdownV2,
             replyMarkup: response.ReplyMarkup);
     }
 

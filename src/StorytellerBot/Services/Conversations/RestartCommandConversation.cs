@@ -34,7 +34,7 @@ public class RestartCommandConversation : IConversation
 
         var commandProgress = await _repo.GetCommandProgressForUserAsync(update.Message!.From!.Id);
 
-        if (IsInvalidState(commandProgress))
+        if (IsInvalidState(commandProgress) || Commands.IsCommand(update.Message!.Text, Commands.Restart))
         {
             await _repo.DeleteCommandProgressAsync(commandProgress);
             await _repo.CreateCommandProgressAsync(new CommandProgress

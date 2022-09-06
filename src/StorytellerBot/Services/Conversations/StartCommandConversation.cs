@@ -24,7 +24,7 @@ public class StartCommandConversation : IConversation
         var user = await _repo.GetOrCreateUserAsync(update.Message!.From!.Id);
         var commandProgress = await _repo.GetCommandProgressForUserAsync(user.Id);
 
-        if (IsInvalidState(commandProgress))
+        if (IsInvalidState(commandProgress) || Commands.IsCommand(update.Message.Text, Commands.Start))
         {
             await _repo.DeleteCommandProgressAsync(commandProgress);
             await _repo.CreateCommandProgressAsync(new CommandProgress
@@ -62,7 +62,7 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            if (user.SavedGames.Any(a => a.Id == adventureId))
+            if (user.SavedGames.Any(a => a.Adventure.Id == adventureId))
             {
                 await _repo.UpdateCommandProgressAsync(commandProgress, State.Confirm, adventureId);
 
@@ -74,8 +74,9 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            await _repo.StartGameAsync(user, adventureId.Value, DateTime.UtcNow);
-            return Enumerable.Empty<Message>();
+            var currentGame = await _repo.StartGameAsync(user, adventureId.Value, DateTime.UtcNow);
+            return await _responseSender.SendResponsesAsync(
+                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus));
         }
 
         if (commandProgress!.Step == State.Confirm)

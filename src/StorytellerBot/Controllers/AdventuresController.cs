@@ -1,11 +1,11 @@
 using System.Net.Mime;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 using StorytellerBot.Settings;
 using StorytellerBot.Data;
-using StorytellerBot.Models;
+using StorytellerBot.Models.Input;
+using StorytellerBot.Models.Data;
 
 namespace StorytellerBot.Controllers;
 
@@ -16,51 +16,55 @@ namespace StorytellerBot.Controllers;
 public class AdventuresController : ControllerBase
 {
     private readonly string _webhookToken;
-    private readonly AdventureContext _adventureContext;
+    private readonly AdventureRepository _repo;
 
     public AdventuresController(
         IOptionsSnapshot<BotConfiguration> botConfiguration,
-        AdventureContext adventureContext)
+        AdventureRepository repo)
     {
         _webhookToken = botConfiguration.Value?.WebhookToken ?? string.Empty;
-        _adventureContext = adventureContext;
+        _repo = repo;
     }
 
     [HttpPost("")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Adventure))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AdventureInputModel))]
     [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(void))]
     public async Task<ActionResult<Adventure>> Create(
-        [FromHeader(Name = TokenHeader)]string token, [FromBody] Adventure newAdventure)
+        [FromHeader(Name = TokenHeader)]string token, [FromBody] AdventureInputModel model)
     {
         if (_webhookToken != token)
             return Unauthorized();
 
-        await _adventureContext.Adventures.AddAsync(newAdventure);
-        await _adventureContext.SaveChangesAsync();
-        return newAdventure;
+        var newAdventure = new Adventure
+        {
+            Name = model.Name,
+            Description = model.Description,
+            ScriptFileName = model.ScriptFileName,
+        };
+        return await _repo.AddAdventureAsync(newAdventure);
     }
 
     [HttpGet("")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Adventure[]))]
     [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(void))]
-    public ActionResult<Adventure[]> Get([FromHeader(Name = TokenHeader)]string token)
+    public async Task<ActionResult<List<Adventure>>> GetAll([FromHeader(Name = TokenHeader)]string token)
     {
         if (_webhookToken != token)
             return Unauthorized();
 
-        return _adventureContext.Adventures.AsNoTracking().ToArray();
+        return await _repo.GetAllAdventuresAsync();
     }
 
     [HttpGet("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Adventure))]
     [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(void))]
-    public ActionResult<Adventure> Get(
+    public async Task<ActionResult<Adventure>> Get(
         [FromHeader(Name = TokenHeader)]string token, [FromRoute] int id)
     {
         if (_webhookToken != token)
             return Unauthorized();
 
-        var adventure = _adventureContext.Adventures.AsNoTracking().FirstOrDefault(a => a.Id == id);
+        var adventure = await _repo.GetAdventureAsync(id);
         return adventure == null ? NotFound() : adventure;
     }
 
@@ -74,12 +78,20 @@ public class AdventuresController : ControllerBase
         if (_webhookToken != token)
             return Unauthorized();
 
-        var adventure = _adventureContext.Adventures.FirstOrDefault(a => a.Id == id);
-        if (adventure == null)
-            return NotFound();
-        _adventureContext.Adventures.Remove(adventure);
-        await _adventureContext.SaveChangesAsync();
-        return Ok();
+        return await _repo.DeleteAdventureAsync(id) ? Ok() : NotFound();
+    }
+
+    [HttpDelete("{id:int}/saves")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(void))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(void))]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(void))]
+    public async Task<IActionResult> DeleteSavesForAdventure(
+        [FromHeader(Name = TokenHeader)]string token, [FromRoute] int id)
+    {
+        if (_webhookToken != token)
+            return Unauthorized();
+
+        return await _repo.DeleteSavesForAdventureAsync(id) ? Ok() : NotFound();
     }
 
     const string TokenHeader = "Webhook-Token";

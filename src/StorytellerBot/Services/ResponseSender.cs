@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using StorytellerBot.Models;
+using StorytellerBot.Models.Game;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -50,20 +50,22 @@ public class ResponseSender : IResponseSender
         }
         _logger.LogInformation("Sending response to chat {ChatId}: {Text}", response.ChatId, response.Text);
 
+        var text = ProtectMessage(response.Text);
+        var parseMode = ParseMode.MarkdownV2;
         if (_mediaLocator.IsExistingMedia(response.Image))
         {
             using Stream imageStream = _mediaLocator.OpenMedia(response.Image);
             return await _botClient.SendPhotoAsync(
                 response.ChatId,
                 new InputOnlineFile(imageStream, response.Image),
-                response.Text,
-                ParseMode.MarkdownV2,
+                text,
+                parseMode,
                 replyMarkup: response.ReplyMarkup);
         }
         return await _botClient.SendTextMessageAsync(
             response.ChatId,
-            ProtectMessage(response.Text),
-            ParseMode.MarkdownV2,
+            text,
+            parseMode,
             replyMarkup: response.ReplyMarkup);
     }
 

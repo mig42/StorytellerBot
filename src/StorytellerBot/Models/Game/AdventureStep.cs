@@ -1,6 +1,6 @@
 using Ink.Runtime;
 
-namespace StorytellerBot.Models;
+namespace StorytellerBot.Models.Game;
 
 public class AdventureStep
 {

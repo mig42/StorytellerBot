@@ -1,5 +1,6 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
-using StorytellerBot.Models;
+using StorytellerBot.Models.Data;
 
 namespace StorytellerBot.Data;
 
@@ -12,12 +13,10 @@ public class AdventureRepository
     }
 
     #region User
-    public async Task<User?> GetUserAsync(long userId) =>
-        await _context.Users.Include(u => u.SavedGames).FirstOrDefaultAsync(u => u.Id == userId);
 
-    public async Task<User> GetOrCreateUserAsync(long userId)
+    public async Task<User> GetOrCreateUserAsync(long userId, bool includeSavedGameAdventures = false)
     {
-        var user = await GetUserAsync(userId);
+        var user = await GetUserAsync(userId, includeSavedGameAdventures);
         if (user == null)
         {
             user = new User { Id = userId };
@@ -26,6 +25,17 @@ public class AdventureRepository
         }
 
         return user;
+    }
+
+    private async Task<User?> GetUserAsync(long userId, bool includeSavedGameAdventures)
+    {
+        Expression<Func<User, bool>> userById = u => u.Id == userId;
+        var query = _context.Users.Include(u => u.SavedGames);
+        if (includeSavedGameAdventures)
+        {
+            return await query.ThenInclude(s => s.Adventure).FirstOrDefaultAsync(userById);
+        }
+        return await query.FirstOrDefaultAsync(userById);
     }
 
     #endregion
@@ -47,6 +57,19 @@ public class AdventureRepository
     {
         _context.SavedStatuses.Remove(savedStatus);
         await _context.SaveChangesAsync();
+    }
+
+    internal async Task<bool> DeleteSavesForAdventureAsync(int id)
+    {
+        if (await GetAdventureAsync(id) == null)
+        {
+            return false;
+        }
+
+        var savedStatuses = _context.SavedStatuses.Where(s => s.AdventureId == id);
+        _context.SavedStatuses.RemoveRange(savedStatuses);
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     #endregion
@@ -106,18 +129,25 @@ public class AdventureRepository
 
     #region Mixed
 
-    public async Task<CurrentGame> StartGameAsync(User user, int adventureId, DateTime utcNow)
+    public async Task<CurrentGame> StartGameAsync(User user, Adventure adventure, DateTime utcNow)
     {
         var newSavedStatus = new SavedStatus
         {
-            AdventureId = adventureId,
+            AdventureId = adventure.Id,
+            Adventure = adventure,
             UserId = user.Id,
+            User = user,
             LastUpdated = utcNow,
         };
         _context.SavedStatuses.Add(newSavedStatus);
         await _context.SaveChangesAsync();
 
-        var newCurrentGame = new CurrentGame { UserId = user.Id, SavedStatusId = newSavedStatus.Id };
+        var newCurrentGame = new CurrentGame {
+            UserId = user.Id,
+            SavedStatusId = newSavedStatus.Id,
+            User = user,
+            SavedStatus = newSavedStatus,
+        };
         _context.CurrentGames.Add(newCurrentGame);
         await _context.SaveChangesAsync();
         return newCurrentGame;
@@ -132,6 +162,31 @@ public class AdventureRepository
 
     internal async Task<bool> AdventureExistsAsync(int adventureId) =>
         await _context.Adventures.AsNoTracking().AnyAsync(a => a.Id == adventureId);
+
+    internal async Task<Adventure> AddAdventureAsync(Adventure newAdventure)
+    {
+        _context.Adventures.Add(newAdventure);
+        await _context.SaveChangesAsync();
+        return newAdventure;
+    }
+
+    internal async Task<Adventure?> GetAdventureAsync(int id)
+    {
+        return await _context.Adventures.FirstOrDefaultAsync(a => a.Id == id);
+    }
+
+    internal async Task<bool> DeleteAdventureAsync(int id)
+    {
+        var adventure = await GetAdventureAsync(id);
+        if (adventure == null)
+        {
+            return false;
+        }
+
+        _context.Adventures.Remove(adventure);
+        await _context.SaveChangesAsync();
+        return true;
+    }
 
     #endregion
 }

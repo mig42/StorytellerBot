@@ -1,7 +1,8 @@
 using Ink.Runtime;
 using Microsoft.Extensions.Options;
 using StorytellerBot.Data;
-using StorytellerBot.Models;
+using StorytellerBot.Models.Data;
+using StorytellerBot.Models.Game;
 using StorytellerBot.Settings;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -56,9 +57,7 @@ public class AdventureWriter : IAdventureWriter
         AdventureStep? adventureStep = await GetNextStep(currentGame);
         if (adventureStep == null)
         {
-            _logger.LogError(
-                "Unable to find next step for adventure {AdventureId}, save #{SaveId}",
-                currentGame.Adventure.Id, currentGame.Id);
+            _logger.LogError("Unable to find next step for save #{SaveId}", currentGame.Id);
             return Enumerable.Empty<Response>();
         }
 
@@ -68,9 +67,9 @@ public class AdventureWriter : IAdventureWriter
                 ChatId = chatId,
                 Text = p.Text,
                 Image = p.Image,
-                ReplyMarkup = idx == adventureStep.Paragraphs.Count() - 1
+                ReplyMarkup = idx == adventureStep!.Paragraphs.Count() - 1
                     ? BuildDecisionsInlineKeyboard(adventureStep)
-                    : null,
+                    : new ReplyKeyboardRemove(),
             });
 
         if (adventureStep.IsEnding)

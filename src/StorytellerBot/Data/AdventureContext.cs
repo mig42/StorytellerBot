@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using StorytellerBot.Models;
+using StorytellerBot.Models.Data;
 
 namespace StorytellerBot.Data;
 

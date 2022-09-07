@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace StorytellerBot.Models;
+namespace StorytellerBot.Models.Data;
 
 [Table("CurrentGame")]
 public class CurrentGame

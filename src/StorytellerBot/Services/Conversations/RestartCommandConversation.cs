@@ -1,5 +1,6 @@
 using StorytellerBot.Data;
-using StorytellerBot.Models;
+using StorytellerBot.Models.Data;
+using StorytellerBot.Models.Game;
 using Telegram.Bot.Types;
 
 namespace StorytellerBot.Services.Conversations;

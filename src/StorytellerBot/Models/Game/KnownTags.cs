@@ -1,4 +1,4 @@
-namespace StorytellerBot.Models;
+namespace StorytellerBot.Models.Game;
 
 internal static class KnownTags
 {

@@ -1,4 +1,4 @@
-using StorytellerBot.Models;
+using StorytellerBot.Models.Game;
 using Telegram.Bot.Types;
 
 namespace StorytellerBot.Services;

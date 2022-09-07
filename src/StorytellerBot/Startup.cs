@@ -52,7 +52,7 @@ public class Startup
 
         services
             .AddControllers()
-            .AddNewtonsoftJson();
+            .AddNewtonsoftJson(setup => setup.UseCamelCasing(true));
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)

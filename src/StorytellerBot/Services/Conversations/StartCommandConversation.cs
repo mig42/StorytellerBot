@@ -1,7 +1,9 @@
 using System.Text;
 using StorytellerBot.Data;
-using StorytellerBot.Models;
+using StorytellerBot.Models.Data;
+using StorytellerBot.Models.Game;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace StorytellerBot.Services.Conversations;
 
@@ -27,6 +29,16 @@ public class StartCommandConversation : IConversation
         if (IsInvalidState(commandProgress) || Commands.IsCommand(update.Message.Text, Commands.Start))
         {
             await _repo.DeleteCommandProgressAsync(commandProgress);
+            var adventures = await _repo.GetAllAdventuresAsync();
+            if (adventures.Count == 0)
+            {
+                return await _responseSender.SendResponseAsync(new Response
+                {
+                    ChatId = update.Message.Chat,
+                    Text = "No hay aventuras disponibles 😭 Prueba de nuevo más tarde.",
+                });
+            }
+
             await _repo.CreateCommandProgressAsync(new CommandProgress
             {
                 Command = Commands.Start,
@@ -37,7 +49,8 @@ public class StartCommandConversation : IConversation
             return await _responseSender.SendResponseAsync(new Response
             {
                 ChatId = update.Message!.Chat.Id,
-                Text = await BuildStartMessageAsync(),
+                Text = await BuildStartMessageAsync(adventures),
+                ReplyMarkup = new ReplyKeyboardMarkup(adventures.Select(a => new KeyboardButton(a.Id.ToString()))),
             });
         }
 
@@ -53,7 +66,8 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            if (!(await _repo.AdventureExistsAsync(adventureId.Value)))
+            var adventure = await _repo.GetAdventureAsync(adventureId.Value);
+            if (adventure == null)
             {
                 return await _responseSender.SendResponseAsync(new Response
                 {
@@ -62,9 +76,9 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            if (user.SavedGames.Any(a => a.Adventure.Id == adventureId))
+            if (user.SavedGames.Any(a => a.Adventure.Id == adventure.Id))
             {
-                await _repo.UpdateCommandProgressAsync(commandProgress, State.Confirm, adventureId);
+                await _repo.UpdateCommandProgressAsync(commandProgress, State.Confirm, adventure.Id);
 
                 return await _responseSender.SendResponseAsync(new Response
                 {
@@ -74,7 +88,7 @@ public class StartCommandConversation : IConversation
                 });
             }
 
-            var currentGame = await _repo.StartGameAsync(user, adventureId.Value, DateTime.UtcNow);
+            var currentGame = await _repo.StartGameAsync(user, adventure, DateTime.UtcNow);
             return await _responseSender.SendResponsesAsync(
                 await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus));
         }
@@ -120,10 +134,8 @@ public class StartCommandConversation : IConversation
         return int.TryParse(message?.Text, out int adventureId) ? adventureId : null;
     }
 
-    private async Task<string> BuildStartMessageAsync()
+    private static Task<string> BuildStartMessageAsync(IEnumerable<Adventure> adventures)
     {
-        var adventures = await _repo.GetAllAdventuresAsync();
-
         StringBuilder sb = new();
         sb.AppendLine("*Elige una aventura:*");
         sb.AppendLine();
@@ -136,7 +148,7 @@ public class StartCommandConversation : IConversation
         sb.AppendLine();
         sb.AppendLine("Envíame el número de la aventura que quieras jugar.");
 
-        return sb.ToString();
+        return Task.FromResult(sb.ToString());
     }
 
     static class State

@@ -2,6 +2,6 @@ namespace StorytellerBot.Settings;
 
 public class GameConfiguration
 {
-    public string ScriptsDirectory { get; set; } = "Scripts";
-    public string MediaDirectory { get; set; } = "Media";
+    public string ScriptsDirectory { get; set; } = "scripts";
+    public string MediaDirectory { get; set; } = "media";
 }

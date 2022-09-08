@@ -223,6 +223,6 @@ bucket-name.txt
 out.yml
 local.settings.json
 
-/src/StorytellerBot/Scripts/*.json
-/src/StorytellerBot/Media/*
+/src/StorytellerBot/scripts/*.json
+/src/StorytellerBot/media/*
 *.db

@@ -6,6 +6,7 @@ using Telegram.Bot.Types;
 using StorytellerBot.Services;
 using StorytellerBot.Settings;
 using Telegram.Bot.Exceptions;
+using StorytellerBot.Models.Game;
 
 namespace StorytellerBot.Controllers;
 
@@ -17,14 +18,17 @@ public class WebhookController : ControllerBase
 {
     private readonly string _webhookToken;
     private readonly IConversationFactory _messageGeneratorFactory;
+    private readonly IResponseSender _responseSender;
     private readonly ILogger<WebhookController> _logger;
 
     public WebhookController(
         IOptionsSnapshot<BotConfiguration> botConfiguration,
+        IResponseSender responseSender,
         IConversationFactory messageGeneratorFactory,
         ILogger<WebhookController> logger)
     {
         _webhookToken = botConfiguration.Value?.WebhookToken ?? string.Empty;
+        _responseSender = responseSender;
         _messageGeneratorFactory = messageGeneratorFactory;
         _logger = logger;
     }
@@ -44,9 +48,33 @@ public class WebhookController : ControllerBase
                 "Unsupported update type '{UpdateType}' from user #{UserId}", update.Type, update.Message?.From?.Id);
             return Ok();
         }
+
+        IEnumerable<Response> responses;
         try {
-            await messageGenerator.SendResponsesAsync(update);
+            responses = await messageGenerator.GetResponsesAsync(update);
         } catch (Exception e) {
+            _logger.LogError(e, "Error building responses: {ErrorMessage}", e.Message);
+            return this.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
+        Forget(SendResponses(responses));
+        return Ok();
+    }
+
+    private void Forget(Task task)
+    {
+        _ = task.ConfigureAwait(false);
+    }
+
+    private async Task SendResponses(IEnumerable<Response> responses)
+    {
+        try
+        {
+            var sentMessages = await _responseSender.SendResponsesAsync(responses);
+            _logger.LogInformation("Sent {SentMessagesCount} messages", sentMessages.Count);
+        }
+        catch (Exception e)
+        {
             var errorMessage = e switch
             {
                 ApiRequestException apiRequestException =>
@@ -56,6 +84,5 @@ public class WebhookController : ControllerBase
 
             _logger.LogError(e, "Error sending messages: {ErrorMessage}", errorMessage);
         }
-        return Ok();
     }
 }

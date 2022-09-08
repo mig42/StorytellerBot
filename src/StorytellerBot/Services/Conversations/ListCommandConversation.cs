@@ -7,21 +7,19 @@ namespace StorytellerBot.Services.Conversations;
 public class ListCommandConversation : IConversation
 {
     private readonly AdventureRepository _repo;
-    private readonly IResponseSender _responseSender;
 
-    public ListCommandConversation(AdventureRepository repo, IResponseSender responseSender)
+    public ListCommandConversation(AdventureRepository repo)
     {
         _repo = repo;
-        _responseSender = responseSender;
     }
 
-    async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
+    async Task<IEnumerable<Response>> IConversation.GetResponsesAsync(Update update)
     {
         var adventures = await _repo.GetAllAdventuresAsync();
-        return await _responseSender.SendResponsesAsync(adventures.Select(a => new Response
+        return adventures.Select(a => new Response
         {
             ChatId = update.Message!.Chat.Id,
             Text = $"📜 *{a.Id}: _{a.Name}_*\n\n{a.Description}",
-        }));
+        });
     }
 }

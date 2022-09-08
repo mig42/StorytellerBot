@@ -8,29 +8,29 @@ namespace StorytellerBot.Services.Conversations;
 public class RestartCommandConversation : IConversation
 {
     private readonly AdventureRepository _repo;
-    private readonly IResponseSender _responseSender;
     private readonly IAdventureWriter _adventureWriter;
 
-    public RestartCommandConversation(
-        AdventureRepository repo, IResponseSender responseSender, IAdventureWriter adventureWriter)
+    public RestartCommandConversation(AdventureRepository repo, IAdventureWriter adventureWriter)
     {
         _repo = repo;
-        _responseSender = responseSender;
         _adventureWriter = adventureWriter;
     }
 
-    async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
+    async Task<IEnumerable<Response>> IConversation.GetResponsesAsync(Update update)
     {
         var user = await _repo.GetOrCreateUserAsync(update.Message!.From!.Id);
         var currentGame = await _repo.GetCurrentGameForUserAsync(user.Id);
 
         if (currentGame == null)
         {
-            return await _responseSender.SendResponseAsync(new Response
+            return new Response[]
             {
-                ChatId = update.Message!.Chat,
-                Text = $"No estás jugando ninguna aventura. Usa el comando /{Commands.Start} para empezar a jugar.",
-            });
+                new Response
+                {
+                    ChatId = update.Message!.Chat,
+                    Text = $"No estás jugando ninguna aventura. Usa el comando /{Commands.Start} para empezar a jugar.",
+                },
+            };
         }
 
         var commandProgress = await _repo.GetCommandProgressForUserAsync(update.Message!.From!.Id);
@@ -45,12 +45,15 @@ public class RestartCommandConversation : IConversation
                 UserId = user.Id,
             });
 
-            return await _responseSender.SendResponseAsync(new Response
+            return new Response[]
             {
-                ChatId = update.Message!.Chat.Id,
-                Text = "Reiniciar la aventura borrará todos los datos de la partida actual. ¿Quieres continuar?",
-                ReplyMarkup = ConfirmationKeyboard.Create(),
-            });
+                new Response
+                {
+                    ChatId = update.Message!.Chat.Id,
+                    Text = "Reiniciar la aventura borrará todos los datos de la partida actual. ¿Quieres continuar?",
+                    ReplyMarkup = ConfirmationKeyboard.Create(),
+                },
+            };
         }
 
         if (commandProgress!.Step == State.Confirm)
@@ -61,16 +64,15 @@ public class RestartCommandConversation : IConversation
             {
                 await _repo.UpdateSavedStatusAsync(currentGame.SavedStatus, string.Empty, DateTime.UtcNow);
 
-                return await _responseSender.SendResponsesAsync(
-                    await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus));
+                return await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus);
             }
             else
             {
-                return Enumerable.Empty<Message>();
+                return Enumerable.Empty<Response>();
             }
         }
 
-        return Enumerable.Empty<Message>();
+        return Enumerable.Empty<Response>();
     }
 
     private bool IsInvalidState(CommandProgress? commandProgress)

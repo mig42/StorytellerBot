@@ -1,31 +1,36 @@
 using StorytellerBot.Data;
+using StorytellerBot.Models.Game;
+using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace StorytellerBot.Services.Conversations;
 
 public class CallbackConversation : IConversation
 {
     private readonly AdventureRepository _repo;
-    private readonly IResponseSender _responseSender;
+    private readonly ITelegramBotClient _botClient;
     private readonly IAdventureWriter _adventureWriter;
     private readonly ILogger<CallbackConversation> _logger;
 
     public CallbackConversation(
         AdventureRepository repo,
-        IResponseSender responseSender,
+        ITelegramBotClient botClient,
         IAdventureWriter adventureWriter,
         ILogger<CallbackConversation> logger)
     {
         _repo = repo;
-        _responseSender = responseSender;
+        _botClient = botClient;
         _adventureWriter = adventureWriter;
         _logger = logger;
     }
 
-    async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
+    async Task<IEnumerable<Response>> IConversation.GetResponsesAsync(Update update)
     {
         var callbackQuery = update.CallbackQuery!;
-        await _responseSender.ClearInlineKeyboard(callbackQuery.Message!.Chat, callbackQuery.Message.MessageId);
+
+        await _botClient.EditMessageReplyMarkupAsync(
+            callbackQuery.Message!.Chat, callbackQuery.Message.MessageId, replyMarkup: InlineKeyboardMarkup.Empty());
 
         var userId = callbackQuery.From!.Id;
         var currentGame = await _repo.GetCurrentGameForUserAsync(userId);
@@ -33,13 +38,13 @@ public class CallbackConversation : IConversation
         {
             _logger.LogWarning(
                 "Unable to handle callback #{CallbackId}, unknown user #{UserId}", callbackQuery.Id, userId);
-            return Enumerable.Empty<Message>();
+            return Enumerable.Empty<Response>();
         }
 
         if (callbackQuery.Message == null)
         {
             _logger.LogWarning("Unable to handle callback #{CallbackId}, message was empty", callbackQuery.Id);
-            return Array.Empty<Message>();
+            return Array.Empty<Response>();
         }
 
         if (!int.TryParse(callbackQuery.Data, out int choiceIndex))
@@ -47,7 +52,7 @@ public class CallbackConversation : IConversation
             _logger.LogWarning(
                 "Unable to handle callback #{CallbackId}, choice index was not a number: {ChoiceIndex}",
                 callbackQuery.Id, callbackQuery.Data);
-            return Array.Empty<Message>();
+            return Enumerable.Empty<Response>();
         }
 
         var newStoryState = await _adventureWriter.AdvanceAdventureAsync(
@@ -60,6 +65,6 @@ public class CallbackConversation : IConversation
         {
             await _repo.DeleteSavedStatusAsync(currentGame.SavedStatus);
         }
-        return await _responseSender.SendResponsesAsync(responses);
+        return responses;
     }
 }

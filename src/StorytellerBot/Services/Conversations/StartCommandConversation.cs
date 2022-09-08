@@ -10,18 +10,15 @@ namespace StorytellerBot.Services.Conversations;
 public class StartCommandConversation : IConversation
 {
     private readonly AdventureRepository _repo;
-    private readonly IResponseSender _responseSender;
     private readonly IAdventureWriter _adventureWriter;
 
-    public StartCommandConversation(
-        AdventureRepository repo, IResponseSender responseSender, IAdventureWriter adventureWriter)
+    public StartCommandConversation(AdventureRepository repo, IAdventureWriter adventureWriter)
     {
         _repo = repo;
-        _responseSender = responseSender;
         _adventureWriter = adventureWriter;
     }
 
-    async Task<IEnumerable<Message>> IConversation.SendResponsesAsync(Update update)
+    async Task<IEnumerable<Response>> IConversation.GetResponsesAsync(Update update)
     {
         var user = await _repo.GetOrCreateUserAsync(update.Message!.From!.Id);
         var commandProgress = await _repo.GetCommandProgressForUserAsync(user.Id);
@@ -32,11 +29,14 @@ public class StartCommandConversation : IConversation
             var adventures = await _repo.GetAllAdventuresAsync();
             if (adventures.Count == 0)
             {
-                return await _responseSender.SendResponseAsync(new Response
+                return new Response[]
                 {
-                    ChatId = update.Message.Chat,
-                    Text = "No hay aventuras disponibles 😭 Prueba de nuevo más tarde.",
-                });
+                    new Response
+                    {
+                        ChatId = update.Message.Chat,
+                        Text = "No hay aventuras disponibles 😭 Prueba de nuevo más tarde.",
+                    },
+                };
             }
 
             await _repo.CreateCommandProgressAsync(new CommandProgress
@@ -46,12 +46,15 @@ public class StartCommandConversation : IConversation
                 UserId = user.Id,
             });
 
-            return await _responseSender.SendResponseAsync(new Response
+            return new Response[]
             {
-                ChatId = update.Message!.Chat.Id,
-                Text = await BuildStartMessageAsync(adventures),
-                ReplyMarkup = new ReplyKeyboardMarkup(adventures.Select(a => new KeyboardButton(a.Id.ToString()))),
-            });
+                new Response
+                {
+                    ChatId = update.Message!.Chat.Id,
+                    Text = await BuildStartMessageAsync(adventures),
+                    ReplyMarkup = new ReplyKeyboardMarkup(adventures.Select(a => new KeyboardButton(a.Id.ToString()))),
+                },
+            };
         }
 
         if (commandProgress!.Step == State.Start)
@@ -59,38 +62,46 @@ public class StartCommandConversation : IConversation
             int? adventureId = ParseAdventureId(update.Message!);
             if (adventureId == null)
             {
-                return await _responseSender.SendResponseAsync(new Response
+                return new Response[]
                 {
-                    ChatId = update.Message!.Chat.Id,
-                    Text = "No entiendo ese número. Por favor, escribe el número de la aventura que quieres jugar.",
-                });
+                    new Response
+                    {
+                        ChatId = update.Message!.Chat.Id,
+                        Text = "No entiendo ese número. Por favor, escribe el número de la aventura que quieres jugar.",
+                    },
+                };
             }
 
             var adventure = await _repo.GetAdventureAsync(adventureId.Value);
             if (adventure == null)
             {
-                return await _responseSender.SendResponseAsync(new Response
+                return new Response[]
                 {
-                    ChatId = update.Message!.Chat.Id,
-                    Text = "No existe ninguna aventura con ese número. Por favor, escribe el número de la aventura que quieres jugar.",
-                });
+                    new Response
+                    {
+                        ChatId = update.Message!.Chat.Id,
+                        Text = "No existe ninguna aventura con ese número. Por favor, escribe el número de la aventura que quieres jugar.",
+                    },
+                };
             }
 
             if (user.SavedGames.Any(a => a.Adventure.Id == adventure.Id))
             {
                 await _repo.UpdateCommandProgressAsync(commandProgress, State.Confirm, adventure.Id);
 
-                return await _responseSender.SendResponseAsync(new Response
+                return new Response[]
                 {
-                    ChatId = update.Message!.Chat.Id,
-                    Text = "Tienes una aventura guardada con ese número, se borrará su progreso. ¿Quieres continuar?",
-                    ReplyMarkup = ConfirmationKeyboard.Create(),
-                });
+                    new Response
+                    {
+                        ChatId = update.Message!.Chat.Id,
+                        Text = "Tienes una aventura guardada con ese número, se borrará su progreso. ¿Quieres continuar?",
+                        ReplyMarkup = ConfirmationKeyboard.Create(),
+                    },
+                };
             }
 
             var currentGame = await _repo.StartGameAsync(user, adventure, DateTime.UtcNow);
-            return await _responseSender.SendResponsesAsync(
-                await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus));
+            return await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame.SavedStatus);
         }
 
         if (commandProgress!.Step == State.Confirm)
@@ -101,22 +112,21 @@ public class StartCommandConversation : IConversation
                 if (!int.TryParse(commandProgress.Argument! , out int adventureId))
                 {
                     await _repo.DeleteCommandProgressAsync(commandProgress);
-                    return Enumerable.Empty<Message>();
+                    return Enumerable.Empty<Response>();
                 }
 
                 var currentGame = await _repo.GetCurrentGameForUserAsync(user.Id);
                 await _repo.UpdateSavedStatusAsync(currentGame?.SavedStatus, string.Empty, DateTime.UtcNow);
-                return await _responseSender.SendResponsesAsync(
-                    await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame?.SavedStatus));
+                return await _adventureWriter.GetCurrentStepMessagesAsync(update.Message!.Chat, currentGame?.SavedStatus);
             }
             else
             {
                 await _repo.DeleteCommandProgressAsync(commandProgress);
-                return Enumerable.Empty<Message>();
+                return Enumerable.Empty<Response>();
             }
         }
 
-        return Enumerable.Empty<Message>();
+        return Enumerable.Empty<Response>();
     }
 
     private static bool IsInvalidState(CommandProgress? command)

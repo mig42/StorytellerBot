@@ -44,10 +44,6 @@ public class ResponseSender : IResponseSender
 
     private async Task<Message> SendSingleResponseAsync(Response response)
     {
-        if (response.Delay != null)
-        {
-            await Task.Delay(response.Delay.Value);
-        }
         _logger.LogInformation("Sending response to chat {ChatId}: {Text}", response.ChatId, response.Text);
 
         var text = ProtectMessage(response.Text);

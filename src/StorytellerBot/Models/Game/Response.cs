@@ -9,6 +9,5 @@ public class Response
     public string Text { get; init; } = string.Empty;
     public string Image { get; init; } = string.Empty;
     public IReplyMarkup ReplyMarkup { get; init; } = new ReplyKeyboardRemove();
-    public TimeSpan? Delay { get; init; }
     public bool IsEndOfAdventure { get; init; }
 }

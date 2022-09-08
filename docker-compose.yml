@@ -1,0 +1,22 @@
+# Please refer https://aka.ms/HTTPSinContainer on how to setup an https developer certificate for your ASP .NET Core service.
+
+version: '3.4'
+
+services:
+  storytellerbot:
+    image: storytellerbot
+    build:
+      context: .
+      dockerfile: src/StorytellerBot/Dockerfile
+    environment:
+      - BotToken=${BOT_TOKEN}
+      - HostAddress=${HOST_ADDRESS}
+      - WebhookToken=${WEBHOOK_TOKEN}
+    ports:
+      - 5000:5000
+    restart: unless-stopped
+    volumes:
+      - logs:/app/logs
+      - media:/app/media
+      - scripts:/app/scripts
+

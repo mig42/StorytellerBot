@@ -22,13 +22,10 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddHostedService<ConfigureWebhook>();
 builder.Services.AddHostedService<ConfigureCommands>();
 
-var botConfigurationSection = builder.Configuration.GetSection(nameof(BotConfiguration));
 
-builder.Services.Configure<BotConfiguration>(botConfigurationSection);
-builder.Services.Configure<MessageSettings>(builder.Configuration.GetSection("Message"));
+builder.Services.Configure<BotConfiguration>(builder.Configuration);
 
-var botToken = botConfigurationSection
-    .GetValue<string>(nameof(BotConfiguration.BotToken));
+var botToken = builder.Configuration[nameof(BotConfiguration.BotToken)];
 builder.Services
     .AddHttpClient("tgwebhook")
     .AddTypedClient<ITelegramBotClient>(

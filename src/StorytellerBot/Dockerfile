@@ -6,7 +6,12 @@ ENV ASPNETCORE_URLS=http://+:5000
 
 # Creates a non-root user with an explicit UID and adds permission to access the /app folder
 # For more info, please refer to https://aka.ms/vscode-docker-dotnet-configure-containers
-RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
+RUN adduser -u 5678 --disabled-password --gecos "" appuser \
+  && mkdir -p /app/db \
+  && mkdir -p /app/logs \
+  && mkdir -p /app/scripts \
+  && mkdir -p /app/media \
+  && chown -R appuser /app
 USER appuser
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0-jammy AS build
@@ -23,5 +28,5 @@ RUN dotnet publish "StorytellerBot.csproj" -c Release -o /app/publish /p:UseAppH
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-VOLUME [ "/app/logs", "/app/media", "/app/scripts", "/app/db" ]
+VOLUME [ "/app/db", "/app/logs", "/app/media", "/app/scripts" ]
 ENTRYPOINT ["dotnet", "StorytellerBot.dll"]

@@ -20,9 +20,8 @@ WORKDIR /app
 
 COPY --from=publish /app/publish .
 
-RUN mkdir -p /app/db /app/logs /app/scripts /app/media \
-  && adduser -u 5678 --disabled-password --gecos "" appuser \
-  && chown -R appuser /app
+RUN mkdir -p /app/db /app/logs /app/scripts /app/media
+RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
 VOLUME [ "/app/db", "/app/logs", "/app/media", "/app/scripts" ]

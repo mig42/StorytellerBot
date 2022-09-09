@@ -21,8 +21,9 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 RUN mkdir -p /app/db /app/logs /app/scripts /app/media
+VOLUME [ "/app/db", "/app/logs", "/app/media", "/app/scripts" ]
+
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
-VOLUME [ "/app/db", "/app/logs", "/app/media", "/app/scripts" ]
 ENTRYPOINT ["dotnet", "StorytellerBot.dll"]

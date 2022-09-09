@@ -21,4 +21,4 @@ services:
       - ./src/StorytellerBot/logs:/app/logs
       - ./src/StorytellerBot/media:/app/media
       - ./src/StorytellerBot/scripts:/app/scripts
-      - ./src/StorytellerBot/db:/app/db
+      - ./src/StorytellerBot/db:/app/db:rw

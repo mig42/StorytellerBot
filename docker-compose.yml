@@ -16,6 +16,7 @@ services:
       - 5000:5000
     restart: unless-stopped
     volumes:
+      - db:/app/db:rw
       - logs:/app/logs
       - media:/app/media
       - scripts:/app/scripts

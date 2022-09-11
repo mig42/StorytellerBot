@@ -7,7 +7,8 @@ on:
 
 
 jobs:
-  Build:
+  build:
+    name: Restore, build and test
 
     runs-on: ubuntu-latest
 

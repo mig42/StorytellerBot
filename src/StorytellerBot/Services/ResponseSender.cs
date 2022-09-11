@@ -4,6 +4,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InputFiles;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace StorytellerBot.Services;
 
@@ -25,7 +26,21 @@ public class ResponseSender : IResponseSender
         List<Message> result = new();
         foreach (var response in responses)
         {
-            result.Add(await SendSingleResponseAsync(response));
+            Message? message;
+            try
+            {
+                message = await SendSingleResponseAsync(response);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error sending response");
+                message = await SendErrorNotificationAsync(response.ChatId, e.Message);
+            }
+
+            if (message != null)
+            {
+                result.Add(message);
+            }
         }
         return result;
     }
@@ -55,6 +70,22 @@ public class ResponseSender : IResponseSender
 
     private static string ProtectMessage(string message)
     {
-        return Regex.Replace(message, "[-.>]", match => $"\\{match.Value}");
+        return Regex.Replace(message, "[-.>!()]", match => $"\\{match.Value}");
+    }
+
+    private async Task<Message?> SendErrorNotificationAsync(ChatId chatId, string message)
+    {
+        try
+        {
+            return await _botClient.SendTextMessageAsync(
+                chatId,
+                $"Hubo un error procesando un mensaje. Notifícaselo al autor. Puedes usar el comando /{Commands.Restart} para comenzar de nuevo.\n\n ```{message}```",
+                replyMarkup: new ReplyKeyboardRemove());
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error sending error notification");
+            return null;
+        }
     }
 }
